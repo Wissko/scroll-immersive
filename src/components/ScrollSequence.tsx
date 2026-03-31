@@ -1,622 +1,651 @@
+'use client';
+
 /**
- * ScrollSequence — AXION Arc Cinématique
- *
- * Les 90 frames (3 produits × 30) défilent le long d'un arc de cercle
- * au scroll : entrée par la droite, sommet au centre, sortie par la gauche.
- * 6-7 vignettes sont visibles simultanément sur l'arc.
- *
- * Layout général :
- *   - Fond #000000
- *   - Section sticky height: 400vh
- *   - Vignettes fixes (280×400 desktop, 140×200 mobile)
- *   - Arc paramétrique : x = cx + R·cos(θ), y = cy + R·sin(θ)
- *   - mix-blend-mode: screen → zones sombres transparentes
- *   - Texte produit animé (Framer Motion AnimatePresence) à gauche
- *
- * Kinetic typography :
- *   - Quand le produit change, le nom du produit ENTRANT s'affiche en très grand
- *     (30vw, uppercase, PP Neue Corp Wide) et glisse horizontalement hors-écran
- *     via GSAP fromTo x: '0%' → '-120%', ease: power3.inOut, 0.7s
- *   - Le div kinétique est en absolute, overflow:hidden, pointer-events:none,
- *     z-index:0, opacity:0.08 — watermark en mouvement
- *
- * Parallax texte :
- *   - Pendant le scroll au sein d'un produit, le bloc texte dérive doucement
- *     vers le haut via GSAP quickSetter : y 0 → -20px sur productProgress 0→1
+ * ScrollSequence — Video scroll-driven premium component
+ * Layout alterné par produit avec crossfade d'images et kinetic typography
+ * Fond noir total, mix-blend-mode: screen pour effacer le fond des frames
  */
 
-"use client";
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import gsap from "gsap";
-import ScrollTrigger from "gsap/ScrollTrigger";
-
-// Register GSAP plugin
-gsap.registerPlugin(ScrollTrigger);
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const FRAMES_PER_FLAVOR = 30;
-const TOTAL_FRAMES = 90; // 3 × 30
-
-/** Maximum slots allocated in DOM — enough for desktop (7) + buffer */
-const MAX_SLOTS = 7;
-
-/** Angular separation between adjacent frame slots (degrees) */
-const ANGLE_STEP_DEG = 24;
-
-// ---------------------------------------------------------------------------
-// Product / flavor data
-// ---------------------------------------------------------------------------
-
-interface Flavor {
-  folder: string;
-  name: string;
-  subtitle: string;
-  accent: string;
+// ─── Registration GSAP plugins ───────────────────────────────────────────────
+if (typeof window !== 'undefined') {
+  gsap.registerPlugin(ScrollTrigger);
 }
 
-const FLAVORS: Flavor[] = [
+// ─── Types ───────────────────────────────────────────────────────────────────
+interface FlavorData {
+  id: number;
+  name: string;
+  accent: string;
+  frameDir: string;
+  headline: string;
+  accroche: string;
+  benefits: string[];
+  imagePosition: 'left' | 'right';
+}
+
+// ─── Données produits ─────────────────────────────────────────────────────────
+const FLAVORS: FlavorData[] = [
   {
-    folder: "Frames_blue",
-    name: "Blue Razz",
-    subtitle: "Electrifying Berry Burst",
-    accent: "#3B82F6",
+    id: 0,
+    name: 'BLUE RAZZ',
+    accent: '#3B82F6',
+    frameDir: '/images/Frames_blue',
+    headline: 'RAZOR SHARP FOCUS',
+    accroche: 'Chaque rep compte. Chaque seconde aussi.',
+    benefits: [
+      'Concentration laser des les premieres minutes',
+      'Energie explosive sans crash post-entrainement',
+      'Endurance mentale et physique prolongee',
+      'Cafeine naturelle + L-Theanine',
+      'Saveur Blue Razz glacee — sans sucre ajoute',
+    ],
+    imagePosition: 'left',
   },
   {
-    folder: "Frames_orange",
-    name: "Mango",
-    subtitle: "Tropical Surge",
-    accent: "#F0A830",
+    id: 1,
+    name: 'MANGO',
+    accent: '#F0A830',
+    frameDir: '/images/Frames_orange',
+    headline: 'TROPICAL SURGE',
+    accroche: "L'energie du soleil, la puissance du terrain.",
+    benefits: [
+      'Boost cardio intense pour les seances longues',
+      "Beta-Alanine pour repousser l'acide lactique",
+      'Vitamine B6 + B12 pour le metabolisme energetique',
+      'Hydratation optimisee avec electrolytes naturels',
+      'Saveur Mango tropicale — zero compromis',
+    ],
+    imagePosition: 'right',
   },
   {
-    folder: "Frames_purple",
-    name: "Grape",
-    subtitle: "Dark Grape Focus",
-    accent: "#8B5CF6",
+    id: 2,
+    name: 'GRAPE',
+    accent: '#8B5CF6',
+    frameDir: '/images/Frames_purple',
+    headline: 'DARK GRAPE FOCUS',
+    accroche: 'La nuit appartient a ceux qui preparent leur victoire.',
+    benefits: [
+      'Pump musculaire puissant — Citrulline Malate',
+      'Antioxydants naturels pour la recuperation',
+      'Focus nocturne sans perturber le sommeil',
+      'Tyrosine + Alpha GPC',
+      'Saveur Grape intense — profonde, pas sucree',
+    ],
+    imagePosition: 'left',
   },
 ];
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const TOTAL_FRAMES = 90;
+const FRAMES_PER_FLAVOR = 30;
 
-/** Build the full ordered list of frame image paths (1-indexed filenames) */
-function buildFramePaths(): string[] {
-  const paths: string[] = [];
-  for (const flavor of FLAVORS) {
-    for (let i = 1; i <= FRAMES_PER_FLAVOR; i++) {
-      paths.push(`/images/${flavor.folder}/frame-${i}.png`);
-    }
-  }
-  return paths;
-}
+// ─── Framer Motion variants ───────────────────────────────────────────────────
+const textContainerVariants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+  exit: {},
+};
 
-/** Preload all frames into the browser cache. Calls onProgress after each load. */
-function preloadAll(
-  paths: string[],
-  onProgress: (loaded: number) => void
-): Promise<void> {
-  let loaded = 0;
-  return Promise.all(
-    paths.map(
-      (src) =>
-        new Promise<void>((resolve) => {
-          const img = new window.Image();
-          const done = () => {
-            loaded += 1;
-            onProgress(loaded);
-            resolve();
-          };
-          img.onload = done;
-          img.onerror = done; // continue even if a frame is missing
-          img.src = src;
-        })
-    )
-  ).then(() => undefined);
-}
+const textItemVariants = {
+  hidden: { y: 30, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      duration: 0.5,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+    },
+  },
+  exit: {
+    y: -20,
+    opacity: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.55, 0, 1, 0.45] as [number, number, number, number],
+    },
+  },
+};
 
-// ---------------------------------------------------------------------------
-// Responsive configuration (re-computed on resize)
-// ---------------------------------------------------------------------------
+const imageBlockVariants = {
+  enterLeft: { x: '-60px', opacity: 0 },
+  enterRight: { x: '60px', opacity: 0 },
+  center: {
+    x: 0,
+    opacity: 1,
+    transition: {
+      duration: 0.6,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+    },
+  },
+  exitLeft: {
+    x: '-60px',
+    opacity: 0,
+    transition: {
+      duration: 0.4,
+      ease: [0.55, 0, 1, 0.45] as [number, number, number, number],
+    },
+  },
+  exitRight: {
+    x: '60px',
+    opacity: 0,
+    transition: {
+      duration: 0.4,
+      ease: [0.55, 0, 1, 0.45] as [number, number, number, number],
+    },
+  },
+};
 
-interface ArcConfig {
-  frameW: number;
-  frameH: number;
-  /** Arc radius in px */
-  R: number;
-  /** Horizontal center of arc in px */
-  cx: number;
-  /** Vertical center-anchor of arc in px (arc curves upward from here) */
-  cy: number;
-  /** Number of frames visible on each side of active frame */
-  visibleRadius: number;
-  /** Total visible slots = visibleRadius * 2 + 1 */
-  visibleCount: number;
-}
-
-function getArcConfig(): ArcConfig {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const mobile = vw < 768;
-  return {
-    frameW: mobile ? 140 : 280,
-    frameH: mobile ? 200 : 400,
-    R: mobile ? vw * 0.9 : vw * 0.6,
-    cx: vw / 2,
-    cy: vh * 0.8,
-    visibleRadius: mobile ? 2 : 3,
-    visibleCount: mobile ? 5 : 7,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
+// ─── Composant principal ──────────────────────────────────────────────────────
+// Named export for page.tsx compatibility
 export function ScrollSequence() {
-  /** Outer scroll wrapper — 400vh */
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const kineticRef = useRef<HTMLDivElement>(null);
 
-  /** DOM refs for each arc frame slot */
-  const slotRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const imgRefs = useRef<(HTMLImageElement | null)[]>([]);
+  // Frame & flavor state
+  const [frameIndex, setFrameIndex] = useState(0);
+  const [flavorIndex, setFlavorIndex] = useState(0);
+  const [prevFlavorIndex, setPrevFlavorIndex] = useState(-1);
 
-  // ---------------------------------------------------------------------------
-  // Kinetic typography refs
-  // ---------------------------------------------------------------------------
+  // Crossfade A/B swap
+  const [activeSlot, setActiveSlot] = useState<'A' | 'B'>('A');
+  const [slotA, setSlotA] = useState<string>('');
+  const [slotB, setSlotB] = useState<string>('');
+  const [slotAOpacity, setSlotAOpacity] = useState(1);
+  const [slotBOpacity, setSlotBOpacity] = useState(0);
+  const crossfadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFrameRef = useRef(-1);
 
-  /**
-   * Wrapper div for the kinetic text block.
-   * GSAP animates `x` on this element: '0%' → '-120%'.
-   * Initialized off-screen (x: '-120%') so it's hidden until first transition.
-   */
-  const kineticWrapperRef = useRef<HTMLDivElement>(null);
+  // Preload state
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [allLoaded, setAllLoaded] = useState(false);
+  const [loaderFading, setLoaderFading] = useState(false);
 
-  /**
-   * The <span> inside the kinetic wrapper — textContent is updated
-   * synchronously (via DOM ref) to the INCOMING product name before GSAP fires.
-   */
-  const kineticSpanRef = useRef<HTMLSpanElement>(null);
-
-  /** Active GSAP tween for kinetic animation — killed on every new transition */
-  const kineticTweenRef = useRef<gsap.core.Tween | null>(null);
-
-  // ---------------------------------------------------------------------------
-  // Parallax text refs
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Outer wrapper for the product text block.
-   * GSAP quickSetter updates `y` on this element per scroll tick.
-   * Framer Motion's AnimatePresence lives INSIDE this wrapper to avoid
-   * transform conflicts.
-   */
-  const parallaxTextRef = useRef<HTMLDivElement>(null);
-
-  /**
-   * GSAP quickSetter for parallax y — created once after mount.
-   * Stored in a ref to avoid re-creation and ensure closure stability.
-   */
-  const parallaxSetterRef = useRef<((value: number) => void) | null>(null);
-
-  // ---------------------------------------------------------------------------
-  // State
-  // ---------------------------------------------------------------------------
-
-  /** Loading progress (0 → TOTAL_FRAMES) */
-  const [loadProgress, setLoadProgress] = useState(0);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  /** Active flavor for product text */
-  const [activeFlavor, setActiveFlavor] = useState<Flavor>(FLAVORS[0]);
-  /** Key increment triggers AnimatePresence re-mount on flavor change */
-  const [flavorKey, setFlavorKey] = useState(0);
-
-  /** Tracks last flavor index to avoid redundant setState calls */
-  const prevFlavorIdxRef = useRef<number>(0);
-
+  // ─── Preload toutes les frames au mount ───────────────────────────────────
   useEffect(() => {
-    const paths = buildFramePaths();
+    let loaded = 0;
+    const total = TOTAL_FRAMES;
 
-    // -----------------------------------------------------------------------
-    // Phase 1 — Preload all frames
-    // -----------------------------------------------------------------------
-    preloadAll(paths, (n) => setLoadProgress(n)).then(() => {
-      setIsLoaded(true);
-
-      const wrapper = wrapperRef.current;
-      if (!wrapper) return;
-
-      // ---------------------------------------------------------------------
-      // Phase 2 — Initialize kinetic text off-screen + parallax quickSetter
-      // ---------------------------------------------------------------------
-
-      // Position kinetic wrapper off-screen left so it's invisible at start
-      if (kineticWrapperRef.current) {
-        gsap.set(kineticWrapperRef.current, { x: "-120%" });
+    FLAVORS.forEach((flavor) => {
+      for (let i = 1; i <= FRAMES_PER_FLAVOR; i++) {
+        const img = new Image();
+        img.src = `${flavor.frameDir}/frame-${i}.png`;
+        img.onload = () => {
+          loaded++;
+          setLoadedCount(loaded);
+          if (loaded >= total) {
+            // Fade out loader
+            setLoaderFading(true);
+            setTimeout(() => setAllLoaded(true), 500);
+          }
+        };
+        img.onerror = () => {
+          loaded++;
+          setLoadedCount(loaded);
+          if (loaded >= total) {
+            setLoaderFading(true);
+            setTimeout(() => setAllLoaded(true), 500);
+          }
+        };
       }
-
-      // Create parallax quickSetter once (perf: avoids GSAP lookup per frame)
-      if (parallaxTextRef.current) {
-        parallaxSetterRef.current = gsap.quickSetter(
-          parallaxTextRef.current,
-          "y",
-          "px"
-        ) as (value: number) => void;
-      }
-
-      // Responsive config (mutable, refreshed on resize)
-      let cfg = getArcConfig();
-      const onResize = () => {
-        cfg = getArcConfig();
-      };
-      window.addEventListener("resize", onResize);
-
-      // -------------------------------------------------------------------
-      // Core arc update — called on every ScrollTrigger tick
-      // -------------------------------------------------------------------
-      const updateArc = (progress: number) => {
-        // rawIndex: continuous float 0 → 89
-        const rawIndex = progress * (TOTAL_FRAMES - 1);
-
-        // Center frame index (integer, nearest frame)
-        const centerIdx = Math.round(rawIndex);
-        // Fractional offset: how far rawIndex is from centerIdx (-0.5 to +0.5)
-        const frac = rawIndex - centerIdx;
-
-        const { frameW, frameH, R, cx, cy, visibleRadius, visibleCount } = cfg;
-
-        // ------------------------------------------------------------------
-        // Kinetic + product text update on flavor change
-        // ------------------------------------------------------------------
-        const flavorIdx = Math.min(
-          Math.floor(centerIdx / FRAMES_PER_FLAVOR),
-          FLAVORS.length - 1
-        );
-        if (flavorIdx !== prevFlavorIdxRef.current) {
-          prevFlavorIdxRef.current = flavorIdx;
-          const incomingFlavor = FLAVORS[flavorIdx];
-
-          // React state update: triggers AnimatePresence transition
-          setActiveFlavor(incomingFlavor);
-          setFlavorKey(flavorIdx);
-
-          // -- Kinetic typography animation --
-          // Update span text to INCOMING product name synchronously
-          if (kineticSpanRef.current) {
-            kineticSpanRef.current.textContent = incomingFlavor.name.toUpperCase();
-            // Update accent color on the span
-            kineticSpanRef.current.style.color = incomingFlavor.accent;
-          }
-
-          if (kineticWrapperRef.current) {
-            // Kill any in-progress tween before starting new one
-            kineticTweenRef.current?.kill();
-
-            // fromTo: start visible at x='0%', glide off-screen left to '-120%'
-            kineticTweenRef.current = gsap.fromTo(
-              kineticWrapperRef.current,
-              { x: "0%" },
-              {
-                x: "-120%",
-                duration: 0.7,
-                ease: "power3.inOut",
-              }
-            );
-          }
-        }
-
-        // ------------------------------------------------------------------
-        // Parallax drift — text drifts -20px over the span of one product
-        // ------------------------------------------------------------------
-        // productProgress: 0.0 at first frame of product → 1.0 at last frame
-        const frameWithinProduct = rawIndex % FRAMES_PER_FLAVOR;
-        const productProgress = frameWithinProduct / (FRAMES_PER_FLAVOR - 1);
-
-        if (parallaxSetterRef.current) {
-          // Drift: 0px at start of product → -20px at end
-          parallaxSetterRef.current(productProgress * -20);
-        }
-
-        // ------------------------------------------------------------------
-        // Arc slot update — directly mutates DOM for perf (no React re-render)
-        // ------------------------------------------------------------------
-        for (let i = 0; i < MAX_SLOTS; i++) {
-          const slot = slotRefs.current[i];
-          const img = imgRefs.current[i];
-          if (!slot || !img) continue;
-
-          // Hide slots beyond current visibleCount (mobile uses fewer)
-          if (i >= visibleCount) {
-            slot.style.opacity = "0";
-            continue;
-          }
-
-          // Frame index this slot should display
-          const frameIdx = centerIdx - visibleRadius + i;
-
-          // Hide out-of-range frames (beginning / end of sequence)
-          if (frameIdx < 0 || frameIdx >= TOTAL_FRAMES) {
-            slot.style.opacity = "0";
-            continue;
-          }
-
-          // Update image src (instant — image is preloaded)
-          const newSrc = paths[frameIdx];
-          if (img.src !== newSrc && !img.src.endsWith(newSrc)) {
-            img.src = newSrc;
-          }
-
-          // Fractional offset of this slot from the continuous rawIndex
-          const offset = i - visibleRadius - frac;
-
-          // Arc position (degrees → radians)
-          const angleDeg = -90 + offset * ANGLE_STEP_DEG;
-          const angleRad = (angleDeg * Math.PI) / 180;
-          const x = cx + R * Math.cos(angleRad);
-          const y = cy + R * Math.sin(angleRad);
-
-          // Scale & opacity: 1.2 at center → 0.7 at far edge
-          const absOffset = Math.abs(offset);
-          const normalized = Math.min(absOffset / visibleRadius, 1);
-          const scale = 1.2 - normalized * 0.5; // 1.2 → 0.7
-          const opacity = Math.max(0, 1 - normalized * 0.7); // 1.0 → 0.3
-          const zIndex = Math.round(20 - absOffset * 3);
-
-          // Apply transforms directly (bypass React render cycle for perf)
-          slot.style.width = `${frameW}px`;
-          slot.style.height = `${frameH}px`;
-          slot.style.transform = `translate(${x - frameW / 2}px, ${
-            y - frameH / 2
-          }px) scale(${scale.toFixed(4)})`;
-          slot.style.opacity = opacity.toFixed(4);
-          slot.style.zIndex = String(zIndex);
-        }
-      };
-
-      // Initial render at progress = 0
-      updateArc(0);
-
-      // -------------------------------------------------------------------
-      // Phase 3 — ScrollTrigger wiring
-      // -------------------------------------------------------------------
-      const st = ScrollTrigger.create({
-        trigger: wrapper,
-        start: "top top",
-        end: "bottom bottom",
-        scrub: 1,
-        onUpdate: (self) => updateArc(self.progress),
-      });
-
-      // Cleanup
-      return () => {
-        st.kill();
-        kineticTweenRef.current?.kill();
-        window.removeEventListener("resize", onResize);
-      };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
+  // ─── Calcul du path d'une frame ──────────────────────────────────────────
+  const getFramePath = useCallback((globalFrameIdx: number): string => {
+    const fIdx = Math.min(Math.floor(globalFrameIdx / FRAMES_PER_FLAVOR), 2);
+    const localFrame = (globalFrameIdx % FRAMES_PER_FLAVOR) + 1;
+    return `${FLAVORS[fIdx].frameDir}/frame-${localFrame}.png`;
+  }, []);
+
+  // ─── Crossfade A/B ────────────────────────────────────────────────────────
+  const updateFrame = useCallback(
+    (newFrameIndex: number) => {
+      if (newFrameIndex === lastFrameRef.current) return;
+      lastFrameRef.current = newFrameIndex;
+
+      const newPath = getFramePath(newFrameIndex);
+
+      if (crossfadeTimeoutRef.current) {
+        clearTimeout(crossfadeTimeoutRef.current);
+      }
+
+      if (activeSlot === 'A') {
+        // Charge dans slot B, fade A→0, B→1
+        setSlotB(newPath);
+        setSlotBOpacity(1);
+        setSlotAOpacity(0);
+        crossfadeTimeoutRef.current = setTimeout(() => {
+          setActiveSlot('B');
+        }, 60);
+      } else {
+        // Charge dans slot A, fade B→0, A→1
+        setSlotA(newPath);
+        setSlotAOpacity(1);
+        setSlotBOpacity(0);
+        crossfadeTimeoutRef.current = setTimeout(() => {
+          setActiveSlot('A');
+        }, 60);
+      }
+    },
+    [activeSlot, getFramePath]
+  );
+
+  // ─── Init slot A avec frame 0 ─────────────────────────────────────────────
+  useEffect(() => {
+    const initialPath = getFramePath(0);
+    setSlotA(initialPath);
+    setSlotAOpacity(1);
+  }, [getFramePath]);
+
+  // ─── Kinetic typography GSAP ──────────────────────────────────────────────
+  useEffect(() => {
+    if (prevFlavorIndex === flavorIndex || prevFlavorIndex === -1) return;
+    if (!kineticRef.current) return;
+
+    const flavor = FLAVORS[flavorIndex];
+    gsap.fromTo(
+      kineticRef.current,
+      { x: '100%' },
+      {
+        x: '-120%',
+        duration: 0.8,
+        ease: 'power3.inOut',
+        overwrite: true,
+      }
+    );
+
+    // Update kinetic text color and content via CSS vars
+    kineticRef.current.style.color = flavor.accent;
+    kineticRef.current.setAttribute('data-text', flavor.name);
+  }, [flavorIndex, prevFlavorIndex]);
+
+  // ─── ScrollTrigger setup ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!sectionRef.current) return;
+
+    const trigger = ScrollTrigger.create({
+      trigger: sectionRef.current,
+      start: 'top top',
+      end: 'bottom bottom',
+      scrub: 1,
+      onUpdate: (self) => {
+        const progress = self.progress; // 0 → 1
+        const newFrameIndex = Math.min(
+          Math.floor(progress * (TOTAL_FRAMES - 1)),
+          TOTAL_FRAMES - 1
+        );
+        const newFlavorIndex = Math.min(
+          Math.floor(newFrameIndex / FRAMES_PER_FLAVOR),
+          2
+        );
+
+        setFrameIndex(newFrameIndex);
+        updateFrame(newFrameIndex);
+
+        if (newFlavorIndex !== flavorIndex) {
+          setPrevFlavorIndex(flavorIndex);
+          setFlavorIndex(newFlavorIndex);
+        }
+      },
+    });
+
+    return () => {
+      trigger.kill();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateFrame]);
+
+  // ─── Cleanup crossfade timeout ─────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (crossfadeTimeoutRef.current) {
+        clearTimeout(crossfadeTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const flavor = FLAVORS[flavorIndex];
+  const loadPercent = Math.round((loadedCount / TOTAL_FRAMES) * 100);
+
+  // ─── Progress dot labels ───────────────────────────────────────────────────
+  const progressLabel = String(flavorIndex + 1).padStart(2, '0') + ' / 03';
+
   return (
-    /* 400vh scroll container — canvas sticks to viewport */
-    <div
-      ref={wrapperRef}
-      className="relative"
-      style={{ height: "400vh", backgroundColor: "#000000" }}
-    >
-      {/* Sticky viewport — fills screen height */}
-      <div
-        className="sticky top-0 w-full overflow-hidden"
-        style={{ height: "100vh", backgroundColor: "#000000" }}
-      >
-
-        {/* ----------------------------------------------------------------
-            Kinetic typography layer
-            ----------------------------------------------------------------
-            - position: absolute, z-index: 0 — behind arc slots and product text
-            - overflow: hidden — clip the text as it slides out
-            - pointer-events: none — never intercepts interaction
-            - opacity: 0.08 — ultra-subtle watermark effect
-            - GSAP animates kineticWrapperRef (x: '0%' → '-120%') on product change
-        ----------------------------------------------------------------- */}
+    <>
+      {/* ── Preload loader bar ──────────────────────────────────────────── */}
+      {!allLoaded && (
         <div
-          aria-hidden="true"
           style={{
-            position: "absolute",
-            inset: 0,
-            overflow: "hidden",
-            pointerEvents: "none",
-            zIndex: 0,
-            display: "flex",
-            alignItems: "center",
-            opacity: 0.08,
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            width: '100%',
+            height: '2px',
+            zIndex: 9999,
+            background: 'rgba(255,255,255,0.08)',
+            opacity: loaderFading ? 0 : 1,
+            transition: 'opacity 0.5s ease',
+            pointerEvents: 'none',
           }}
         >
-          {/*
-            Inner div animated by GSAP (x transform).
-            whiteSpace: nowrap ensures the text doesn't wrap mid-slide.
-          */}
           <div
-            ref={kineticWrapperRef}
-            style={{ whiteSpace: "nowrap", willChange: "transform" }}
-          >
-            <span
-              ref={kineticSpanRef}
-              style={{
-                fontFamily: "'PP Neue Corp Wide', sans-serif",
-                fontWeight: 800,
-                fontSize: "clamp(6rem, 30vw, 40vw)",
-                textTransform: "uppercase",
-                letterSpacing: "-0.02em",
-                lineHeight: 1,
-                /* Initial color matches first flavor; updated per transition */
-                color: FLAVORS[0].accent,
-                display: "inline-block",
-                userSelect: "none",
-              }}
-            >
-              {/* Text content set synchronously via ref in updateArc — starts empty */}
-            </span>
-          </div>
+            style={{
+              height: '100%',
+              width: `${loadPercent}%`,
+              background: '#3B82F6',
+              transition: 'width 0.1s linear',
+            }}
+          />
         </div>
+      )}
 
-        {/* ----------------------------------------------------------------
-            Arc frame slots — absolutely positioned, updated via direct DOM
-        ----------------------------------------------------------------- */}
+      {/* ── Section sticky principale ───────────────────────────────────── */}
+      <section
+        ref={sectionRef}
+        style={{
+          height: '500vh',
+          position: 'relative',
+        }}
+        aria-label="Présentation des saveurs Axion"
+      >
+        {/* Inner sticky container */}
         <div
-          className="absolute inset-0"
-          aria-hidden="true"
-          style={{ pointerEvents: "none" }}
-        >
-          {Array.from({ length: MAX_SLOTS }, (_, i) => (
-            <div
-              key={i}
-              ref={(el) => {
-                slotRefs.current[i] = el;
-              }}
-              className="absolute"
-              style={{
-                width: "280px",
-                height: "400px",
-                willChange: "transform, opacity",
-                transformOrigin: "center center",
-                opacity: 0,
-              }}
-            >
-              <img
-                ref={(el) => {
-                  imgRefs.current[i] = el;
-                }}
-                alt=""
-                draggable={false}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  mixBlendMode: "screen",
-                  display: "block",
-                  userSelect: "none",
-                }}
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* ----------------------------------------------------------------
-            Product text — left side
-            ----------------------------------------------------------------
-            parallaxTextRef: outer wrapper, GSAP applies y drift (0 → -20px)
-            per product scroll progress — no Framer Motion here to avoid
-            transform conflicts.
-
-            AnimatePresence lives inside: handles enter/exit opacity+x.
-        ----------------------------------------------------------------- */}
-        <div
-          ref={parallaxTextRef}
-          className="absolute z-20"
           style={{
-            left: "clamp(1.5rem, 4vw, 5rem)",
-            top: "50%",
-            transform: "translateY(-50%)",
-            maxWidth: "32vw",
-            pointerEvents: "none",
-            /* willChange ensures GPU compositing for smooth parallax */
-            willChange: "transform",
+            position: 'sticky',
+            top: 0,
+            height: '100vh',
+            overflow: 'hidden',
+            background: '#000',
           }}
         >
-          {/*
-            Stable anchor div always in DOM (satisfies layoutId rule).
-            AnimatePresence handles enter/exit transitions inside.
-          */}
-          <div>
-            <AnimatePresence mode="wait">
+          {/* ── Kinetic typography (fond) ────────────────────────────────── */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              overflow: 'hidden',
+              zIndex: 0,
+              pointerEvents: 'none',
+              opacity: 0.07,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <div
+              ref={kineticRef}
+              data-text={flavor.name}
+              style={{
+                fontSize: 'clamp(5rem, 28vw, 38vw)',
+                fontFamily: '"PP Neue Corp Wide", sans-serif',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                color: flavor.accent,
+                whiteSpace: 'nowrap',
+                willChange: 'transform',
+                lineHeight: 1,
+              }}
+            >
+              {flavor.name}
+            </div>
+          </div>
+
+          {/* ── Layout produit (AnimatePresence pour slide) ──────────────── */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`layout-${flavorIndex}`}
+              initial={false}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 1,
+              }}
+            >
+              {/* ── Bloc image ─────────────────────────────────────────── */}
               <motion.div
-                key={flavorKey}
-                initial={{ opacity: 0, x: -30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                transition={{
-                  duration: 0.6,
-                  ease: [0.25, 0.46, 0.45, 0.94] as [
-                    number,
-                    number,
-                    number,
-                    number
-                  ],
+                key={`img-block-${flavorIndex}`}
+                variants={imageBlockVariants}
+                initial={flavor.imagePosition === 'left' ? 'enterLeft' : 'enterRight'}
+                animate="center"
+                exit={flavor.imagePosition === 'left' ? 'exitLeft' : 'exitRight'}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  [flavor.imagePosition]: 0,
+                  width: 'clamp(0px, 65%, 65%)',
+                  height: '100%',
                 }}
               >
-                {/* Subtitle — DM Sans 300, accent color */}
-                <p
+                {/* Crossfade slot A */}
+                <img
+                  src={slotA}
+                  alt=""
+                  aria-hidden="true"
                   style={{
-                    fontFamily: "DM Sans, sans-serif",
-                    fontWeight: 300,
-                    fontSize: "1.2rem",
-                    color: activeFlavor.accent,
-                    marginBottom: "1rem",
-                    letterSpacing: "0.1em",
+                    position: 'absolute',
+                    inset: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    mixBlendMode: 'screen',
+                    opacity: slotAOpacity,
+                    transition: `opacity 60ms linear`,
+                    willChange: 'opacity',
                   }}
-                >
-                  {activeFlavor.subtitle}
-                </p>
-
-                {/* Product name — PP Neue Corp Wide 800, ~8vw */}
-                <h2
+                />
+                {/* Crossfade slot B */}
+                <img
+                  src={slotB}
+                  alt=""
+                  aria-hidden="true"
                   style={{
-                    fontFamily: "'PP Neue Corp Wide', sans-serif",
-                    fontWeight: 800,
-                    fontSize: "clamp(2.5rem, 8vw, 9rem)",
-                    color: "#FFFFFF",
-                    lineHeight: 1,
-                    textTransform: "uppercase",
-                    margin: 0,
+                    position: 'absolute',
+                    inset: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    mixBlendMode: 'screen',
+                    opacity: slotBOpacity,
+                    transition: `opacity 60ms linear`,
+                    willChange: 'opacity',
                   }}
-                >
-                  {activeFlavor.name}
-                </h2>
+                />
               </motion.div>
-            </AnimatePresence>
-          </div>
-        </div>
 
-        {/* ----------------------------------------------------------------
-            Preload progress bar — thin line at bottom, accent-colored
-        ----------------------------------------------------------------- */}
-        {!isLoaded && (
+              {/* ── Bloc texte ─────────────────────────────────────────── */}
+              <motion.div
+                key={`text-block-${flavorIndex}`}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  [flavor.imagePosition === 'left' ? 'right' : 'left']: 0,
+                  width: '35%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '4rem',
+                  zIndex: 2,
+                  // Mobile : géré via media query inline impossible, voir styles globaux
+                }}
+                variants={textContainerVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <div style={{ width: '100%' }}>
+                  {/* Headline */}
+                  <motion.h2
+                    variants={textItemVariants}
+                    style={{
+                      fontFamily: '"PP Neue Corp Wide", sans-serif',
+                      fontWeight: 800,
+                      fontSize: 'clamp(1.8rem, 4.5vw, 5rem)',
+                      textTransform: 'uppercase',
+                      color: flavor.accent,
+                      lineHeight: 1.05,
+                      marginBottom: '1rem',
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    {flavor.headline}
+                  </motion.h2>
+
+                  {/* Accroche */}
+                  <motion.p
+                    variants={textItemVariants}
+                    style={{
+                      fontFamily: '"DM Sans", sans-serif',
+                      fontWeight: 300,
+                      fontStyle: 'italic',
+                      fontSize: '1.2rem',
+                      color: 'rgba(255,255,255,0.8)',
+                      marginBottom: '2rem',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {flavor.accroche}
+                  </motion.p>
+
+                  {/* Bénéfices */}
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {flavor.benefits.map((benefit, i) => (
+                      <motion.li
+                        key={i}
+                        variants={textItemVariants}
+                        style={{
+                          fontFamily: '"DM Sans", sans-serif',
+                          fontWeight: 400,
+                          fontSize: '0.95rem',
+                          color: 'rgba(255,255,255,0.65)',
+                          lineHeight: 1.8,
+                          display: 'flex',
+                          alignItems: 'baseline',
+                          gap: '0.6rem',
+                        }}
+                      >
+                        {/* Trait accent */}
+                        <span
+                          style={{
+                            color: flavor.accent,
+                            fontWeight: 700,
+                            flexShrink: 0,
+                            fontSize: '0.9rem',
+                          }}
+                          aria-hidden="true"
+                        >
+                          {'\u2500'}
+                        </span>
+                        {benefit}
+                      </motion.li>
+                    ))}
+                  </ul>
+                </div>
+              </motion.div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* ── Indicateur de progression ────────────────────────────────── */}
           <div
-            className="absolute bottom-0 left-0 right-0 z-50"
-            style={{ height: "2px", backgroundColor: "#111111" }}
+            style={{
+              position: 'absolute',
+              bottom: '2rem',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 10,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.6rem',
+            }}
+            aria-label={`Produit ${flavorIndex + 1} sur 3`}
           >
-            <div
-              style={{
-                height: "100%",
-                width: `${(loadProgress / TOTAL_FRAMES) * 100}%`,
-                backgroundColor: FLAVORS[0].accent,
-                transition: "width 0.08s linear",
-              }}
-            />
-          </div>
-        )}
+            {/* Pastilles */}
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {FLAVORS.map((f, i) => (
+                <div
+                  key={f.id}
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: f.accent,
+                    opacity: i === flavorIndex ? 1 : 0.3,
+                    transform: i === flavorIndex ? 'scale(1.4)' : 'scale(1)',
+                    transition: 'transform 0.3s ease, opacity 0.3s ease',
+                    animation: i === flavorIndex ? 'pulse-dot 1.5s ease-in-out infinite' : 'none',
+                  }}
+                />
+              ))}
+            </div>
 
-        {/* ----------------------------------------------------------------
-            Bottom vignette — soften the lower edge into pure black
-        ----------------------------------------------------------------- */}
-        <div
-          aria-hidden="true"
-          className="absolute bottom-0 left-0 right-0 pointer-events-none z-10"
-          style={{
-            height: "18%",
-            background: "linear-gradient(to bottom, transparent, #000000)",
-          }}
-        />
-      </div>
-    </div>
+            {/* Label numérique */}
+            <span
+              style={{
+                fontFamily: '"DM Sans", sans-serif',
+                fontWeight: 300,
+                fontSize: '0.75rem',
+                color: 'rgba(255,255,255,0.35)',
+                letterSpacing: '0.1em',
+              }}
+            >
+              {progressLabel}
+            </span>
+          </div>
+
+          {/* ── Styles injectés (pulse + responsive) ────────────────────── */}
+          <style>{`
+            @keyframes pulse-dot {
+              0%, 100% { box-shadow: 0 0 0 0 currentColor; }
+              50% { box-shadow: 0 0 0 4px transparent; }
+            }
+
+            /* Responsive mobile */
+            @media (max-width: 768px) {
+              .axion-image-block {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: auto !important;
+                width: 100% !important;
+                height: 50vh !important;
+              }
+              .axion-text-block {
+                position: absolute !important;
+                top: 50vh !important;
+                left: 0 !important;
+                right: auto !important;
+                width: 100% !important;
+                height: 50vh !important;
+                padding: 1.5rem !important;
+              }
+              .axion-text-block h2 {
+                font-size: 8vw !important;
+              }
+              .axion-text-block p {
+                font-size: 1rem !important;
+              }
+              .axion-text-block li {
+                font-size: 0.85rem !important;
+              }
+            }
+          `}</style>
+        </div>
+      </section>
+    </>
   );
 }
+
+
