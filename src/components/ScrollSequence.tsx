@@ -90,10 +90,10 @@ const FLAVORS: FlavorData[] = [
 ];
 
 // ─── Frame configuration ──────────────────────────────────────────────────────
-// Odd-only frames: 1, 3, 5, ... 29 → 15 frames per flavor
-const FRAME_NUMBERS = Array.from({ length: 15 }, (_, i) => i * 2 + 1); // [1,3,5,...,29]
-const FRAMES_PER_FLAVOR = FRAME_NUMBERS.length; // 15
-const TOTAL_FRAMES = FRAMES_PER_FLAVOR * FLAVORS.length; // 45
+// All frames: 1 → 30 per flavor
+const FRAME_NUMBERS = Array.from({ length: 30 }, (_, i) => i + 1); // [1,2,...,30]
+const FRAMES_PER_FLAVOR = FRAME_NUMBERS.length; // 30
+const TOTAL_FRAMES = FRAMES_PER_FLAVOR * FLAVORS.length; // 90
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
 function hexToRgb(hex: string): [number, number, number] {
@@ -219,9 +219,6 @@ export function ScrollSequence() {
   const lastFrameKeyRef                 = useRef<string>('');
   const crossfadeTimer                  = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ─── Product timer ref (so manual nav can reset it) ───────────────────────
-  const productIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   // ─── Section in-view trigger for entry animation ──────────────────────────
   const isInView = useInView(sectionRef, { once: true, amount: 0.05 });
 
@@ -300,29 +297,6 @@ export function ScrollSequence() {
     return () => clearInterval(frameInterval);
   }, [updateFrame]);
 
-  // ─── Autoplay: product interval (5000ms) ─────────────────────────────────
-  const startProductTimer = useCallback(() => {
-    if (productIntervalRef.current) clearInterval(productIntervalRef.current);
-    productIntervalRef.current = setInterval(() => {
-      setFlavorIndex((prev) => {
-        const next = (prev + 1) % FLAVORS.length;
-        flavorIndexRef.current = next;
-        accentRef.current = FLAVORS[next].accent;
-        return next;
-      });
-      // Reset frame to 0 on product change
-      setFrameIndex(0);
-      lastFrameKeyRef.current = '';
-    }, 5000);
-  }, []);
-
-  useEffect(() => {
-    startProductTimer();
-    return () => {
-      if (productIntervalRef.current) clearInterval(productIntervalRef.current);
-    };
-  }, [startProductTimer]);
-
   // ─── Sync accent ref when flavorIndex changes ─────────────────────────────
   useEffect(() => {
     accentRef.current = FLAVORS[flavorIndex].accent;
@@ -337,8 +311,7 @@ export function ScrollSequence() {
     accentRef.current = FLAVORS[idx].accent;
     setFrameIndex(0);
     lastFrameKeyRef.current = '';
-    startProductTimer(); // reset the 5s timer
-  }, [startProductTimer]);
+  }, []);
 
   // ─── Cleanup crossfade timer ──────────────────────────────────────────────
   useEffect(() => {
