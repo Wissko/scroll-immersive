@@ -4,11 +4,6 @@
  * Contact page — minimal form
  */
 
-export const metadata: Metadata = {
-  title: "Contact | AXION",
-  description: "Get in touch with AXION. Questions, partnerships, wholesale.",
-};
-
 export default function ContactPage() {
   return (
     <main style={{ background: "#050505", minHeight: "100vh", paddingTop: "8rem", paddingBottom: "4rem" }}>

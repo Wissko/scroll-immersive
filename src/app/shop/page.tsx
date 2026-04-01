@@ -6,11 +6,6 @@
 import Link from "next/link";
 import { PRODUCTS } from "@/data/products";
 
-export const metadata: Metadata = {
-  title: "Shop | AXION",
-  description: "Shop AXION Electric Pre-Workout. Blue Razz, Mango, Grape.",
-};
-
 export default function ShopPage() {
   return (
     <main style={{ background: "#050505", minHeight: "100vh", paddingTop: "8rem", paddingBottom: "4rem" }}>
