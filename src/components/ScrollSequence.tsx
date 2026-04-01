@@ -80,7 +80,7 @@ const PRODUCTS: ProductData[] = [
     specs: "200mg Caffeine · 4g L-Citrulline · 2g L-Tyrosine",
     cta: "Join the First Drop",
     accent: "#4F9EF8",
-    background: "#040810",
+    background: "#050505",
     modelPath: "/models/blue-razz.glb",
     imageLeft: true,
   },
@@ -95,7 +95,7 @@ const PRODUCTS: ProductData[] = [
     specs: "200mg Caffeine · 4g L-Citrulline · 2g Beta-Alanine",
     cta: "Join the First Drop",
     accent: "#F5B942",
-    background: "#0D0800",
+    background: "#050505",
     modelPath: "/models/mango.glb",
     imageLeft: false,
   },
@@ -110,7 +110,7 @@ const PRODUCTS: ProductData[] = [
     specs: "200mg Caffeine · 2g L-Tyrosine · 500mg Taurine",
     cta: "Join the First Drop",
     accent: "#9B72F5",
-    background: "#07040F",
+    background: "#050505",
     modelPath: "/models/grape.glb",
     imageLeft: true,
   },
@@ -288,7 +288,7 @@ function ProductSection({ product }: { product: ProductData }) {
           fontWeight: 800,
           fontSize: "0.7rem",
           letterSpacing: "0.2em",
-          color: `${product.accent}33`, /* accent à 20% opacité */
+          color: "rgba(255,255,255,0.15)", /* accent à 20% opacité */
           userSelect: "none",
         }}
       >
@@ -370,7 +370,7 @@ function ProductSection({ product }: { product: ProductData }) {
             style={{
               width: "1px",
               height: "40%",
-              background: `linear-gradient(to bottom, transparent, ${product.accent}40, transparent)`,
+              background: "linear-gradient(to bottom, transparent, rgba(255,255,255,0.12), transparent)",
             }}
           />
         </div>
@@ -409,7 +409,7 @@ function ProductSection({ product }: { product: ProductData }) {
                 fontSize: "0.65rem",
                 letterSpacing: "0.35em",
                 textTransform: "uppercase",
-                color: product.accent,
+                color: "#fff",
                 marginBottom: "1.2rem",
                 display: "block",
               }}
@@ -424,7 +424,7 @@ function ProductSection({ product }: { product: ProductData }) {
                 fontFamily: "'PP Neue Corp Wide', sans-serif",
                 fontWeight: 800,
                 fontSize: "clamp(3rem, 6vw, 5.5rem)",
-                color: product.accent,
+                color: "#fff",
                 margin: "0 0 0.5rem",
                 lineHeight: 1,
                 letterSpacing: "-0.01em",
@@ -438,10 +438,10 @@ function ProductSection({ product }: { product: ProductData }) {
               variants={textLineVariants}
               style={{
                 fontFamily: "'DM Sans', sans-serif",
-                fontWeight: 300,
+                fontWeight: 400,
                 fontStyle: "italic",
                 fontSize: "1.1rem",
-                color: `${product.accent}A6`, /* 65% opacité */
+                color: "rgba(255,255,255,0.55)", /* 65% opacité */
                 margin: "0 0 1.4rem",
               }}
             >
@@ -455,7 +455,7 @@ function ProductSection({ product }: { product: ProductData }) {
               style={{
                 width: "60px",
                 height: "1px",
-                backgroundColor: `${product.accent}66`, /* 40% opacité */
+                backgroundColor: "rgba(255,255,255,0.2)", /* 40% opacité */
                 marginBottom: "1.4rem",
               }}
             />
@@ -467,7 +467,7 @@ function ProductSection({ product }: { product: ProductData }) {
                 fontFamily: "'DM Sans', sans-serif",
                 fontWeight: 400,
                 fontSize: "0.95rem",
-                color: `${product.accent}99`, /* 60% opacité */
+                color: "rgba(255,255,255,0.5)", /* 60% opacité */
                 maxWidth: "360px",
                 lineHeight: 1.8,
                 margin: "0 0 1.5rem",
@@ -481,10 +481,10 @@ function ProductSection({ product }: { product: ProductData }) {
               variants={textLineVariants}
               style={{
                 fontFamily: "'DM Sans', sans-serif",
-                fontWeight: 300,
+                fontWeight: 400,
                 fontSize: "0.72rem",
                 letterSpacing: "0.12em",
-                color: `${product.accent}80`, /* 50% opacité */
+                color: "rgba(255,255,255,0.45)", /* 50% opacité */
                 margin: "0 0 2rem",
                 textTransform: "uppercase",
               }}
@@ -664,9 +664,9 @@ function CTAButton({
         letterSpacing: "0.2em",
         textTransform: "uppercase",
         padding: "0.75rem 2rem",
-        border: `1px solid ${accent}`,
-        backgroundColor: hovered ? accent : "transparent",
-        color: hovered ? background : accent,
+        border: "1px solid #fff",
+        backgroundColor: hovered ? "#fff" : "transparent",
+        color: hovered ? "#000" : "#fff",
         transition: "background-color 400ms ease, color 400ms ease",
         cursor: "pointer",
         outline: "none",
