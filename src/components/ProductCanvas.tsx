@@ -76,7 +76,7 @@ function Model({ path, accentColor }: { path: string; accentColor: string }) {
 
   return (
     <group ref={groupRef} rotation={[0, 0, Math.PI / 6]}>
-      <primitive object={scene} scale={0.35} />
+      <primitive object={scene} scale={1.0} />
     </group>
   )
 }
@@ -95,7 +95,7 @@ export function ProductCanvas({
       {/* Spinner supprimé — le canvas couvre tout dès le mount */}
 
       <Canvas
-        camera={{ position: [0, 0, 5], fov: 35 }}
+        camera={{ position: [0, 0, 3.5], fov: 45 }}
         style={{ background: 'transparent', position: 'relative', zIndex: 2 }}
         gl={{ alpha: true, antialias: true }}
       >
