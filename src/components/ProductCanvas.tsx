@@ -84,7 +84,7 @@ function Model({ path, accentColor }: { path: string; accentColor: string }) {
 
   return (
     <group ref={groupRef} rotation={[0, 0, Math.PI / 6]}>
-      <primitive object={scene} scale={isMobile ? 0.9 : 1.5} position={[0, isMobile ? -0.3 : -0.7, 0]} />
+      <primitive object={scene} scale={isMobile ? 1.3 : 1.5} position={[0, isMobile ? -0.5 : -0.7, 0]} />
     </group>
   )
 }
@@ -137,6 +137,11 @@ export function ProductCanvas({
   )
 }
 
-// Note: useGLTF.preload() calls are intentionally removed from module scope
-// to avoid SSR initialization issues. Preloading is handled by the browser
-// when the dynamic component hydrates client-side.
+// Preload all 3 models at component hydration time (client-side only)
+if (typeof window !== 'undefined') {
+  ['/models/blue-razz.glb', '/models/mango.glb', '/models/grape.glb'].forEach((path) => {
+    const loader = new THREE.FileLoader()
+    loader.setResponseType('arraybuffer')
+    loader.load(path, () => {})
+  })
+}
