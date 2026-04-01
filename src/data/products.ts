@@ -28,7 +28,7 @@ export const PRODUCTS: ProductData[] = [
     name: "Blue Razz",
     tagline: "Razor sharp focus.",
     description:
-      "Engineered for athletes who demand precision. Blue Razz delivers clean, sustained energy with zero crash — powered by 200mg caffeine, L-Theanine, and 4g Citrulline Malate.",
+      "Engineered for athletes who demand precision. Blue Razz delivers clean, sustained energy with zero crash. Powered by 200mg caffeine, L-Theanine, and 4g Citrulline Malate.",
     specs: "200mg Caffeine  ·  150mg L-Theanine  ·  4g Citrulline",
     cta: "Shop Blue Razz",
     accent: "#4F9EF8",
