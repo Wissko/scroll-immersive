@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ScrollSequence — SVG Mask Blinds Scroll Transitions
+ * ScrollSequence — SVG Mask Blinds Scroll Transitions + Zoom Explosive + Burst Reveal
  *
  * Architecture:
  *   - 300vh sticky section (outer), 100vh sticky container (inner)
@@ -11,14 +11,18 @@
  *       Layer 3 (Grape)     : revealed via 8 horizontal SVG blinds, scroll 33→66%
  *   - Each layer plays 30-frame autoplay at 80ms/frame, all loops simultaneously
  *   - SVG <image> href updated via ref (no React re-render per frame)
+ *   - GSAP scale amplifier: each SVG scales 1.0→1.25 as frames progress
+ *   - Burst reveal: clip-path circle explosion at frame 28, switches active product
+ *   - Flash accent: color flash at product switch moment (350ms into burst)
+ *   - Pastille dots: click to manually switch product with burst animation
  *   - Text overlay switches via Framer Motion AnimatePresence (y + opacity stagger)
  *   - Progress bar: 3 accent-colored segments driven by scroll progress
  *   - Vignette + accent glow for ambiance
  *   - Lenis is already bootstrapped in LenisProvider; no re-init here
- *   - Full cleanup (intervals + ScrollTriggers) on unmount
+ *   - Full cleanup (intervals + ScrollTriggers + timeouts) on unmount
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
@@ -31,6 +35,7 @@ const BLIND_COUNT = 8;
 const BLIND_HEIGHT = 100 / BLIND_COUNT; // 12.5 SVG units per blind
 const FRAME_COUNT = 30;
 const FRAME_INTERVAL_MS = 80;
+const BURST_FRAME_TRIGGER = 28; // frame at which burst kicks in
 
 // ─── Product definitions ──────────────────────────────────────────────────────
 const PRODUCTS = [
@@ -127,17 +132,15 @@ export function ScrollSequence() {
   const sectionRef = useRef<HTMLElement>(null);
 
   // ── SVG <image> refs — href updated directly, bypassing React state ────────
-  // Layer 1 (Blue Razz)
   const imgRef0 = useRef<SVGImageElement | null>(null);
-  // Layer 2 (Mango)
   const imgRef1 = useRef<SVGImageElement | null>(null);
-  // Layer 3 (Grape)
   const imgRef2 = useRef<SVGImageElement | null>(null);
 
+  // ── SVG container refs — GSAP scale applied directly ──────────────────────
+  const svgRefs = useRef<(SVGSVGElement | null)[]>([null, null, null]);
+
   // ── SVG <g> refs for blind rects — animated by GSAP attr tween ────────────
-  // Layer 2 blinds
   const blindsRef1 = useRef<SVGGElement | null>(null);
-  // Layer 3 blinds
   const blindsRef2 = useRef<SVGGElement | null>(null);
 
   // ── Progress bar fill refs — width % set directly ─────────────────────────
@@ -152,9 +155,89 @@ export function ScrollSequence() {
   // ── Accent glow div ref — color updated directly on layer change ───────────
   const glowRef = useRef<HTMLDivElement | null>(null);
 
+  // ── Burst + flash overlay refs ─────────────────────────────────────────────
+  const burstRef = useRef<HTMLDivElement | null>(null);
+  const flashRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Burst state refs ───────────────────────────────────────────────────────
+  const isBurstingRef = useRef(false);
+  const burstTriggeredRef = useRef<boolean[]>([false, false, false]);
+  const burstTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ─── triggerBurst — clip-path circle explosion + flash + product switch ─────
+  const triggerBurst = useCallback((nextLayer: number) => {
+    if (isBurstingRef.current) return;
+    isBurstingRef.current = true;
+
+    const burst = burstRef.current;
+    const flash = flashRef.current;
+
+    if (!burst) {
+      isBurstingRef.current = false;
+      return;
+    }
+
+    const accentColor = PRODUCTS[nextLayer].accent;
+
+    // Reset and show burst overlay
+    gsap.set(burst, { clipPath: 'circle(0% at 50% 50%)', display: 'block' });
+
+    // Burst IN: circle explodes from center (0% → 150%)
+    gsap.to(burst, {
+      clipPath: 'circle(150% at 50% 50%)',
+      duration: 0.7,
+      ease: 'power3.inOut',
+      onComplete: () => {
+        // Burst OUT: circle retracts (150% → 0%)
+        gsap.to(burst, {
+          clipPath: 'circle(0% at 50% 50%)',
+          duration: 0.6,
+          ease: 'power2.out',
+          delay: 0.1,
+          onComplete: () => {
+            gsap.set(burst, { display: 'none' });
+            isBurstingRef.current = false;
+          },
+        });
+      },
+    });
+
+    // At 350ms (mid-burst): switch product + fire flash accent
+    burstTimeoutRef.current = setTimeout(() => {
+      // Update active layer
+      activeLayerRef.current = nextLayer;
+      setActiveLayer(nextLayer);
+
+      // Update glow color
+      if (glowRef.current) {
+        glowRef.current.style.background = `radial-gradient(ellipse at center bottom, ${accentColor}33 0%, transparent 70%)`;
+      }
+
+      // Flash accent (electric spark effect)
+      if (flash) {
+        gsap.set(flash, { background: accentColor, opacity: 0, display: 'block' });
+        gsap.to(flash, {
+          opacity: 0.3,
+          duration: 0.15,
+          ease: 'power2.out',
+          onComplete: () => {
+            gsap.to(flash, {
+              opacity: 0,
+              duration: 0.15,
+              ease: 'power2.in',
+              onComplete: () => {
+                gsap.set(flash, { display: 'none' });
+              },
+            });
+          },
+        });
+      }
+    }, 350);
+  }, []); // all accessed values are refs or stable (setActiveLayer)
+
   // ─── Autoplay: all 3 layers loop simultaneously at 80ms ─────────────────────
+  // Also applies GSAP scale amplifier + triggers burst at frame 28+
   useEffect(() => {
-    // Each layer maintains its own frame counter
     const frameNums = [1, 1, 1];
     const imgRefs = [imgRef0, imgRef1, imgRef2];
 
@@ -162,25 +245,50 @@ export function ScrollSequence() {
       return setInterval(() => {
         // Advance frame, wrap at FRAME_COUNT
         frameNums[i] = frameNums[i] >= FRAME_COUNT ? 1 : frameNums[i] + 1;
+
         // Update SVG image href directly — no React state, no re-render
         const el = imgRefs[i].current;
         if (el) {
           el.setAttribute('href', `${product.frameDir}/frame-${frameNums[i]}.png`);
+        }
+
+        // ── Scale amplifier: 1.0 → 1.25 as frames progress ──────────────────
+        const frameProgress = frameNums[i] / FRAME_COUNT;
+        const scale = 1 + frameProgress * 0.25;
+        const svgEl = svgRefs.current[i];
+        if (svgEl) {
+          gsap.set(svgEl, { scale, transformOrigin: 'center center' });
+        }
+
+        // ── Reset burst guard when frame wraps back to 1 ────────────────────
+        if (frameNums[i] === 1) {
+          burstTriggeredRef.current[i] = false;
+        }
+
+        // ── Burst trigger: only for active layer, frame 28+, once per cycle ──
+        if (
+          i === activeLayerRef.current &&
+          frameNums[i] >= BURST_FRAME_TRIGGER &&
+          !burstTriggeredRef.current[i]
+        ) {
+          burstTriggeredRef.current[i] = true;
+          const nextLayer = (i + 1) % PRODUCTS.length;
+          triggerBurst(nextLayer);
         }
       }, FRAME_INTERVAL_MS);
     });
 
     return () => {
       intervals.forEach(clearInterval);
+      if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
     };
-  }, []);
+  }, [triggerBurst]);
 
   // ─── GSAP ScrollTrigger: blind mask animations + progress bar ────────────────
   useEffect(() => {
     const section = sectionRef.current;
     if (!section) return;
 
-    // Collect all ScrollTrigger instances created here for cleanup
     const createdTriggers: ScrollTrigger[] = [];
 
     // Helper: update active layer without stale closure
@@ -188,7 +296,6 @@ export function ScrollSequence() {
       if (newLayer !== activeLayerRef.current) {
         activeLayerRef.current = newLayer;
         setActiveLayer(newLayer);
-        // Update glow color directly
         if (glowRef.current) {
           const accent = PRODUCTS[newLayer].accent;
           glowRef.current.style.background = `radial-gradient(ellipse at center bottom, ${accent}33 0%, transparent 70%)`;
@@ -197,7 +304,6 @@ export function ScrollSequence() {
     };
 
     // ── Layer 2 (Mango): scroll 0% → 33.333% of section ─────────────────────
-    // Reveals Mango over Blue Razz via 8 horizontal blinds
     if (blindsRef1.current) {
       const blindRects1 = Array.from(
         blindsRef1.current.querySelectorAll('rect'),
@@ -214,11 +320,9 @@ export function ScrollSequence() {
             end: '33.333% top',
             scrub: 2,
             onUpdate(self) {
-              // Progress bar segment 1 (Blue Razz): fills alongside Mango reveal
               if (fillRef0.current) {
                 fillRef0.current.style.width = `${self.progress * 100}%`;
               }
-              // Switch text to Mango when blinds are > 50% open
               updateActiveLayer(self.progress > 0.5 ? 1 : 0);
             },
           },
@@ -229,7 +333,6 @@ export function ScrollSequence() {
     }
 
     // ── Layer 3 (Grape): scroll 33.333% → 66.666% of section ────────────────
-    // Reveals Grape over Mango via 8 horizontal blinds
     if (blindsRef2.current) {
       const blindRects2 = Array.from(
         blindsRef2.current.querySelectorAll('rect'),
@@ -246,11 +349,9 @@ export function ScrollSequence() {
             end: '66.666% top',
             scrub: 2,
             onUpdate(self) {
-              // Progress bar segment 2 (Mango)
               if (fillRef1.current) {
                 fillRef1.current.style.width = `${self.progress * 100}%`;
               }
-              // Switch text: Mango → Grape at 50% blind progress
               updateActiveLayer(self.progress > 0.5 ? 2 : 1);
             },
           },
@@ -280,12 +381,20 @@ export function ScrollSequence() {
     const stP3 = tweenProgress3.scrollTrigger;
     if (stP3) createdTriggers.push(stP3);
 
-    // ── Cleanup: kill all triggers created in this effect ────────────────────
     return () => {
       createdTriggers.forEach((t) => t.kill());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ─── Pastille dot click: manual burst (no zoom — just clip-path + flash) ─────
+  const handleDotClick = useCallback(
+    (targetLayer: number) => {
+      if (targetLayer === activeLayerRef.current) return;
+      triggerBurst(targetLayer);
+    },
+    [triggerBurst],
+  );
 
   // ─── Derived: active product data ────────────────────────────────────────────
   const product = PRODUCTS[activeLayer];
@@ -315,6 +424,7 @@ export function ScrollSequence() {
       >
         {/* ── Layer 1: Blue Razz — always visible, no mask ──────────────────── */}
         <svg
+          ref={(el) => { svgRefs.current[0] = el; }}
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 0 }}
@@ -334,6 +444,7 @@ export function ScrollSequence() {
 
         {/* ── Layer 2: Mango — revealed by 8 horizontal SVG blinds ──────────── */}
         <svg
+          ref={(el) => { svgRefs.current[1] = el; }}
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 1 }}
@@ -347,7 +458,6 @@ export function ScrollSequence() {
              */}
             <mask id="mask-mango" maskUnits="userSpaceOnUse">
               <rect x="0" y="0" width="100" height="100" fill="black" />
-              {/* 8 horizontal blind rects — GSAP animates width 0→100 */}
               <g ref={blindsRef1}>
                 {Array.from({ length: BLIND_COUNT }, (_, i) => (
                   <rect
@@ -362,7 +472,6 @@ export function ScrollSequence() {
               </g>
             </mask>
           </defs>
-          {/* Mango product frame — href updated by autoplay interval */}
           <image
             ref={imgRef1}
             href="/images/Frames_orange/frame-1.png"
@@ -378,19 +487,15 @@ export function ScrollSequence() {
 
         {/* ── Layer 3: Grape — revealed by 8 horizontal SVG blinds ──────────── */}
         <svg
+          ref={(el) => { svgRefs.current[2] = el; }}
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 2 }}
           aria-hidden="true"
         >
           <defs>
-            {/**
-             * SVG mask for Grape layer
-             * Same structure as Mango mask, independent blind group
-             */}
             <mask id="mask-grape" maskUnits="userSpaceOnUse">
               <rect x="0" y="0" width="100" height="100" fill="black" />
-              {/* 8 horizontal blind rects — GSAP animates width 0→100 */}
               <g ref={blindsRef2}>
                 {Array.from({ length: BLIND_COUNT }, (_, i) => (
                   <rect
@@ -405,7 +510,6 @@ export function ScrollSequence() {
               </g>
             </mask>
           </defs>
-          {/* Grape product frame — href updated by autoplay interval */}
           <image
             ref={imgRef2}
             href="/images/Frames_purple/frame-1.png"
@@ -444,12 +548,40 @@ export function ScrollSequence() {
             transform: 'translateX(-50%)',
             width: '60%',
             height: '40%',
-            // Initial color for Blue Razz
             background:
               'radial-gradient(ellipse at center bottom, #4F9EF833 0%, transparent 70%)',
             filter: 'blur(60px)',
             zIndex: 4,
             pointerEvents: 'none',
+          }}
+        />
+
+        {/* ── Burst overlay — clip-path circle explosion, #050505 ───────────── */}
+        <div
+          ref={burstRef}
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: '#050505',
+            zIndex: 50,
+            display: 'none',
+            pointerEvents: 'none',
+            clipPath: 'circle(0% at 50% 50%)',
+          }}
+        />
+
+        {/* ── Flash overlay — accent color spark at product switch ──────────── */}
+        <div
+          ref={flashRef}
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 51,
+            display: 'none',
+            pointerEvents: 'none',
+            opacity: 0,
           }}
         />
 
@@ -465,7 +597,6 @@ export function ScrollSequence() {
               position: 'absolute',
               top: '50%',
               transform: 'translateY(-50%)',
-              // Alternated: Blue Razz → right, Mango → left, Grape → right
               ...(product.textSide === 'right'
                 ? { right: '5vw' }
                 : { left: '5vw' }),
@@ -475,7 +606,7 @@ export function ScrollSequence() {
               flexDirection: 'column',
             }}
           >
-            {/* Label — uppercase, accent color, small tracking */}
+            {/* Label */}
             <motion.span
               variants={textLineVariants}
               style={{
@@ -492,7 +623,7 @@ export function ScrollSequence() {
               {product.label}
             </motion.span>
 
-            {/* Product name — PP Neue Corp Wide 800 */}
+            {/* Product name */}
             <motion.h2
               variants={textLineVariants}
               style={{
@@ -508,7 +639,7 @@ export function ScrollSequence() {
               {product.name}
             </motion.h2>
 
-            {/* Accroche — italic, 60% white */}
+            {/* Accroche */}
             <motion.p
               variants={textLineVariants}
               style={{
@@ -579,6 +710,39 @@ export function ScrollSequence() {
           </motion.div>
         </AnimatePresence>
 
+        {/* ── Pastille dots — manual product switching with burst ───────────── */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '4rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 12,
+            display: 'flex',
+            gap: '14px',
+            alignItems: 'center',
+          }}
+        >
+          {PRODUCTS.map((p, i) => (
+            <button
+              key={p.id}
+              onClick={() => handleDotClick(i)}
+              aria-label={`Switch to ${p.name}`}
+              style={{
+                width: i === activeLayer ? '10px' : '7px',
+                height: i === activeLayer ? '10px' : '7px',
+                borderRadius: '50%',
+                border: 'none',
+                padding: 0,
+                cursor: i === activeLayer ? 'default' : 'pointer',
+                background: i === activeLayer ? p.accent : 'rgba(255,255,255,0.25)',
+                transition: 'background 0.3s ease, width 0.2s ease, height 0.2s ease',
+                outline: 'none',
+              }}
+            />
+          ))}
+        </div>
+
         {/* ── Progress bar — 3 accent segments, bottom center ──────────────── */}
         <div
           aria-hidden="true"
@@ -587,13 +751,13 @@ export function ScrollSequence() {
             bottom: '2rem',
             left: '50%',
             transform: 'translateX(-50%)',
-            zIndex: 10,
+            zIndex: 12,
             display: 'flex',
             gap: '4px',
             width: '200px',
           }}
         >
-          {/* Segment 0 — Blue Razz (#4F9EF8) */}
+          {/* Segment 0 — Blue Razz */}
           <div
             style={{
               flex: 1,
@@ -614,7 +778,7 @@ export function ScrollSequence() {
             />
           </div>
 
-          {/* Segment 1 — Mango (#F5B942) */}
+          {/* Segment 1 — Mango */}
           <div
             style={{
               flex: 1,
@@ -635,7 +799,7 @@ export function ScrollSequence() {
             />
           </div>
 
-          {/* Segment 2 — Grape (#9B72F5) */}
+          {/* Segment 2 — Grape */}
           <div
             style={{
               flex: 1,
