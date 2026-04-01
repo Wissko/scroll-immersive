@@ -659,7 +659,7 @@ function CTAButton({
       onMouseLeave={() => setHovered(false)}
       style={{
         fontFamily: "'DM Sans', sans-serif",
-        fontWeight: 400,
+        fontWeight: 700,
         fontSize: "0.8rem",
         letterSpacing: "0.2em",
         textTransform: "uppercase",
@@ -667,7 +667,6 @@ function CTAButton({
         border: "1px solid #fff",
         backgroundColor: hovered ? "#fff" : "transparent",
         color: hovered ? "#000" : "#fff",
-        fontWeight: 700,
         transition: "background-color 400ms ease, color 400ms ease",
         cursor: "pointer",
         outline: "none",
