@@ -28,7 +28,7 @@ const LAYERS = [
     className: "layer-0",
     style: {
       background:
-        "radial-gradient(ellipse 120% 80% at 50% 60%, #1a1000 0%, #0A0804 100%)",
+        "radial-gradient(ellipse 120% 80% at 50% 60%, #1a1000 0%, #050505 100%)",
     },
   },
   {
@@ -82,7 +82,7 @@ export function Hero() {
     <section
       ref={containerRef}
       className="relative h-screen w-full overflow-hidden"
-      style={{ backgroundColor: "#0A0804" }}
+      style={{ backgroundColor: "#050505" }}
     >
       {/* Layer 0 — deep background */}
       <div
@@ -148,16 +148,16 @@ export function Hero() {
       {/* Black line overflow — 2px bottom border */}
       <div
         className="absolute bottom-0 left-0 right-0 z-20"
-        style={{ height: "2px", background: "#0A0804" }}
+        style={{ height: "2px", background: "#050505" }}
       />
 
-      {/* Fade gradient to black at bottom */}
+      {/* Fade gradient to product sections */}
       <div
         className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none"
         style={{
           height: "35%",
           background:
-            "linear-gradient(to bottom, transparent 0%, #0A0804 100%)",
+            "linear-gradient(to bottom, transparent 0%, #050505 100%)",
         }}
       />
     </section>
