@@ -11,7 +11,18 @@
 
 import React, { useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
-import Image from "next/image";
+import dynamic from "next/dynamic";
+
+// ProductCanvas est chargé côté client uniquement — R3F Canvas ne tourne pas en SSR
+const ProductCanvas = dynamic(
+  () => import("./ProductCanvas").then((m) => m.ProductCanvas),
+  {
+    ssr: false,
+    loading: () => (
+      <div style={{ width: "100%", height: "100%", background: "transparent" }} />
+    ),
+  }
+);
 
 // ──────────────────────────────────────────────────────
 // CONSTANTES D'EASE — Framer Motion
@@ -45,8 +56,8 @@ interface ProductData {
   accent: string;
   /** Couleur de fond spécifique au produit */
   background: string;
-  /** Chemin de l'image */
-  imageSrc: string;
+  /** Chemin du modèle 3D GLB */
+  modelPath: string;
   /** Image à gauche (true) ou à droite (false) */
   imageLeft: boolean;
 }
@@ -68,7 +79,7 @@ const PRODUCTS: ProductData[] = [
     cta: "Shop Blue Razz",
     accent: "#4F9EF8",
     background: "#040810",
-    imageSrc: "/images/Frames_blue/frame-1.png",
+    modelPath: "/models/blue-razz.glb",
     imageLeft: true,
   },
   {
@@ -83,7 +94,7 @@ const PRODUCTS: ProductData[] = [
     cta: "Shop Mango",
     accent: "#F5B942",
     background: "#0D0800",
-    imageSrc: "/images/Frames_orange/frame-1.png",
+    modelPath: "/models/mango.glb",
     imageLeft: false,
   },
   {
@@ -98,7 +109,7 @@ const PRODUCTS: ProductData[] = [
     cta: "Shop Grape",
     accent: "#9B72F5",
     background: "#07040F",
-    imageSrc: "/images/Frames_purple/frame-1.png",
+    modelPath: "/models/grape.glb",
     imageLeft: true,
   },
 ];
@@ -296,7 +307,7 @@ function ProductSection({ product }: { product: ProductData }) {
             }}
           />
 
-          {/* Image produit avec animation scroll reveal */}
+          {/* Modèle 3D produit avec animation scroll reveal */}
           <motion.div
             variants={imageVariants}
             initial="hidden"
@@ -305,28 +316,13 @@ function ProductSection({ product }: { product: ProductData }) {
               position: "relative",
               zIndex: 1,
               width: "100%",
-              maxWidth: "420px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "0 2rem",
+              height: "100%",
+              minHeight: "400px",
             }}
           >
-            <Image
-              src={product.imageSrc}
-              alt={product.name}
-              width={420}
-              height={520}
-              priority
-              style={{
-                width: "100%",
-                maxWidth: "420px",
-                maxHeight: "70vh",
-                objectFit: "contain",
-                /* mix-blend-mode screen : fond sombre disparaît */
-                mixBlendMode: "screen",
-                display: "block",
-              }}
+            <ProductCanvas
+              modelPath={product.modelPath}
+              accentColor={product.accent}
             />
           </motion.div>
         </div>
