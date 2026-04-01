@@ -208,28 +208,72 @@ export default function ProductPage() {
             $39.99
           </motion.p>
 
-          {/* Add to Cart */}
+          {/* Add to Cart — premium animated button */}
           <motion.button
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE, delay: 0.8 }}
+            className="axion-add-to-cart"
             style={{
               fontFamily: "'DM Sans', sans-serif",
               fontWeight: 500,
-              fontSize: "0.85rem",
-              letterSpacing: "0.2em",
+              fontSize: "0.8rem",
+              letterSpacing: "0.25em",
               textTransform: "uppercase",
-              padding: "1.1rem 3rem",
-              border: "none",
-              background: product.accent,
-              color: product.background,
+              padding: "1.2rem 3.5rem",
+              border: `1px solid ${product.accent}`,
+              background: "transparent",
+              color: product.accent,
               cursor: "pointer",
               marginBottom: "1rem",
-              transition: "opacity 300ms ease",
+              position: "relative",
+              overflow: "hidden",
+              zIndex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.6rem",
+              minHeight: "52px",
             }}
           >
-            Add to Cart
+            <span style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 01-8 0" />
+              </svg>
+              Add to Cart
+            </span>
           </motion.button>
+
+          <style>{`
+            .axion-add-to-cart::before {
+              content: '';
+              position: absolute;
+              top: 0;
+              left: -100%;
+              width: 100%;
+              height: 100%;
+              background: ${product.accent};
+              z-index: 1;
+              transition: left 400ms cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            .axion-add-to-cart:hover::before {
+              left: 0;
+            }
+            .axion-add-to-cart:hover {
+              color: ${product.background} !important;
+              border-color: ${product.accent} !important;
+            }
+            .axion-add-to-cart:hover span {
+              color: ${product.background};
+            }
+            @media (max-width: 768px) {
+              .axion-add-to-cart {
+                width: 100% !important;
+              }
+            }
+          `}</style>
 
           {/* Secondary */}
           <motion.a

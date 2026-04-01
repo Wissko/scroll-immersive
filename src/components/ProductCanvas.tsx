@@ -7,7 +7,7 @@
 
 import { Canvas, useFrame } from '@react-three/fiber'
 import { useGLTF, ContactShadows } from '@react-three/drei'
-import { useRef, Suspense } from 'react'
+import { useRef, Suspense, useState, useEffect } from 'react'
 import * as THREE from 'three'
 
 // ──────────────────────────────────────────────────────
@@ -65,6 +65,14 @@ function SpinnerFallback({ accentColor }: { accentColor: string }) {
 function Model({ path, accentColor }: { path: string; accentColor: string }) {
   const { scene } = useGLTF(path)
   const groupRef = useRef<THREE.Group>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   // Autorotation douce + breathing effect
   useFrame((state, delta) => {
@@ -75,8 +83,8 @@ function Model({ path, accentColor }: { path: string; accentColor: string }) {
   })
 
   return (
-    <group ref={groupRef} rotation={[0, 0, Math.PI / 4.5]}>
-      <primitive object={scene} scale={1.5} position={[0, -0.7, 0]} />
+    <group ref={groupRef} rotation={[0, 0, Math.PI / 6]}>
+      <primitive object={scene} scale={isMobile ? 0.9 : 1.5} position={[0, isMobile ? -0.3 : -0.7, 0]} />
     </group>
   )
 }
