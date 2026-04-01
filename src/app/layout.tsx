@@ -8,6 +8,9 @@ import "./globals.css";
 import { LenisProvider } from "@/components/LenisProvider";
 import { Navbar } from "@/components/Navbar";
 
+/** Force dynamic rendering — Lenis + R3F incompatible with static prerendering */
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "AXION Electric Pre — Focus + Drive",
   description:
