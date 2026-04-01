@@ -1,8 +1,8 @@
+"use client";
+
 /**
  * Shop overview — 3 products side by side
  */
-
-import { Metadata } from "next";
 import Link from "next/link";
 import { PRODUCTS } from "@/data/products";
 

@@ -1,8 +1,8 @@
+"use client";
+
 /**
  * Contact page — minimal form
  */
-
-import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Contact | AXION",
