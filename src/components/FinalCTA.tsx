@@ -1,184 +1,263 @@
 /**
- * FinalCTA
- * Closing section with the three product bottles side by side
- * and a pre-order call-to-action.
- * Uses Framer Motion for entrance animations.
- * layoutId is always present in DOM (opacity toggle, no conditional render).
+ * FinalCTA — "Closing Statement"
+ * Editorial luxury finale. No bottles, no glows, no gaming energy.
+ * Inspired by Byredo, Le Labo, Aesop, Maison Margiela.
+ * Reveal driven by useInView from Framer Motion.
  */
 
 "use client";
 
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import { motion, useInView } from "framer-motion";
 
-const BOTTLES: { flavor: Flavor; accent: string; label: string }[] = [
-  { flavor: "Blue Razz", accent: "#3B82F6", label: "Frames_blue" },
-  { flavor: "Mango", accent: "#F0A830", label: "Frames_orange" },
-  { flavor: "Grape", accent: "#8B5CF6", label: "Frames_purple" },
+const FLAVORS: { name: string; accent: string }[] = [
+  { name: "Blue Razz", accent: "#3B82F6" },
+  { name: "Mango",     accent: "#F0A830" },
+  { name: "Grape",     accent: "#8B5CF6" },
 ];
 
-type Flavor = "Blue Razz" | "Mango" | "Grape";
+const EASE_LUXURY = [0.76, 0, 0.24, 1] as [number, number, number, number];
 
 export function FinalCTA() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const inView = useInView(sectionRef, { once: true, margin: "-15%" });
+
   return (
     <section
-      className="relative min-h-screen flex flex-col items-center justify-center gap-20 px-6"
-      style={{ backgroundColor: "#0A0804" }}
+      ref={sectionRef}
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "#030303",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "6rem 1.5rem",
+        position: "relative",
+      }}
     >
-      {/* Top fade in from scroll sequence */}
+      {/* Inner column */}
       <div
-        className="absolute top-0 left-0 right-0 pointer-events-none"
         style={{
-          height: "120px",
-          background: "linear-gradient(to bottom, #0A0804, transparent)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "2.5rem",
+          width: "100%",
+          maxWidth: "720px",
+          textAlign: "center",
         }}
-      />
-
-      {/* Section headline */}
-      <motion.div
-        className="text-center"
-        initial={{ opacity: 0, y: 40 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
       >
-        <p
-          className="uppercase tracking-widest mb-4"
+        {/* Decorative top line */}
+        <motion.div
+          initial={{ scaleX: 0, opacity: 0 }}
+          animate={inView ? { scaleX: 1, opacity: 1 } : {}}
+          transition={{ duration: 0.8, ease: EASE_LUXURY }}
+          style={{
+            width: "80px",
+            height: "1px",
+            backgroundColor: "rgba(255,255,255,0.2)",
+            transformOrigin: "left center",
+          }}
+        />
+
+        {/* AXION — clip-path reveal left→right */}
+        <div style={{ overflow: "hidden" }}>
+          <motion.h2
+            initial={{ clipPath: "inset(0 100% 0 0)" }}
+            animate={inView ? { clipPath: "inset(0 0% 0 0)" } : {}}
+            transition={{ duration: 1.0, ease: EASE_LUXURY }}
+            style={{
+              fontFamily: "PP Neue Corp Wide, sans-serif",
+              fontWeight: 800,
+              fontSize: "clamp(6rem, 12vw, 11rem)",
+              color: "#ffffff",
+              letterSpacing: "-0.02em",
+              lineHeight: 1,
+              margin: 0,
+            }}
+          >
+            AXION
+          </motion.h2>
+        </div>
+
+        {/* Sub-label */}
+        <motion.p
+          initial={{ y: 20, opacity: 0 }}
+          animate={inView ? { y: 0, opacity: 1 } : {}}
+          transition={{ duration: 0.7, delay: 0.6, ease: EASE_LUXURY }}
           style={{
             fontFamily: "DM Sans, sans-serif",
             fontWeight: 300,
-            fontSize: "clamp(0.7rem, 1vw, 0.9rem)",
-            letterSpacing: "0.4em",
-            color: "rgba(245,240,230,0.4)",
+            fontSize: "1rem",
+            color: "rgba(255,255,255,0.25)",
+            letterSpacing: "0.3em",
+            textTransform: "uppercase",
+            margin: 0,
           }}
         >
-          Three flavors. One mission.
-        </p>
-        <h2
-          className="uppercase leading-none"
+          Electric Pre-Workout
+        </motion.p>
+
+        {/* Divider line */}
+        <motion.div
+          initial={{ scaleX: 0, opacity: 0 }}
+          animate={inView ? { scaleX: 1, opacity: 1 } : {}}
+          transition={{ duration: 0.8, delay: 0.75, ease: EASE_LUXURY }}
           style={{
-            fontFamily: "PP Neue Corp Wide, sans-serif",
-            fontWeight: 800,
-            fontSize: "clamp(3rem, 8vw, 9rem)",
-            color: "#F5F0E6",
+            width: "120px",
+            height: "1px",
+            backgroundColor: "rgba(255,255,255,0.1)",
+            transformOrigin: "center",
           }}
-        >
-          Electric Pre
-        </h2>
-      </motion.div>
+        />
 
-      {/* Bottle placeholders — always in DOM */}
-      <div className="flex items-end justify-center gap-8 md:gap-14 w-full max-w-4xl">
-        {BOTTLES.map((bottle, i) => (
-          <motion.div
-            key={bottle.label}
-            layoutId={`bottle-${bottle.label}`}
-            className="flex flex-col items-center gap-4"
-            initial={{ opacity: 0, y: 60 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{
-              duration: 0.8,
-              delay: i * 0.12,
-              ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
-            }}
-          >
-            {/* Bottle placeholder */}
-            <div
-              className="relative rounded-2xl overflow-hidden"
-              style={{
-                width: "clamp(80px, 12vw, 160px)",
-                height: "clamp(200px, 30vw, 400px)",
-                background: `linear-gradient(175deg, ${bottle.accent}18 0%, ${bottle.accent}06 100%)`,
-                border: `1px solid ${bottle.accent}30`,
-                boxShadow: `0 0 40px ${bottle.accent}20, inset 0 1px 0 ${bottle.accent}40`,
-              }}
-            >
-              {/* Glow reflection line at top */}
-              <div
-                className="absolute top-0 left-0 right-0"
-                style={{
-                  height: "1px",
-                  background: `linear-gradient(90deg, transparent, ${bottle.accent}80, transparent)`,
-                }}
-              />
-              {/* AXION label stub */}
-              <div
-                className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-1"
-              >
-                <span
-                  className="uppercase"
-                  style={{
-                    fontFamily: "PP Neue Corp Wide, sans-serif",
-                    fontWeight: 800,
-                    fontSize: "clamp(0.45rem, 0.9vw, 0.75rem)",
-                    color: "#F5F0E6",
-                    letterSpacing: "0.2em",
-                  }}
-                >
-                  AXION
-                </span>
-                <div
-                  style={{
-                    width: "40%",
-                    height: "1px",
-                    background: `${bottle.accent}60`,
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Flavor name */}
-            <p
-              className="uppercase tracking-widest text-center"
-              style={{
-                fontFamily: "DM Sans, sans-serif",
-                fontWeight: 300,
-                fontSize: "clamp(0.6rem, 0.85vw, 0.8rem)",
-                letterSpacing: "0.3em",
-                color: bottle.accent,
-              }}
-            >
-              {bottle.flavor}
-            </p>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* CTA button */}
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-60px" }}
-        transition={{
-          duration: 0.7,
-          delay: 0.3,
-          ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
-        }}
-      >
-        <button
-          className="group relative uppercase tracking-widest px-12 py-4 overflow-hidden"
+        {/* Statement paragraph */}
+        <motion.p
+          initial={{ y: 15, opacity: 0 }}
+          animate={inView ? { y: 0, opacity: 1 } : {}}
+          transition={{ duration: 0.7, delay: 0.9, ease: EASE_LUXURY }}
           style={{
             fontFamily: "DM Sans, sans-serif",
-            fontWeight: 400,
-            fontSize: "clamp(0.75rem, 1vw, 0.9rem)",
-            letterSpacing: "0.35em",
-            color: "#0A0804",
-            background: "#F0A830",
-            border: "none",
-            cursor: "pointer",
+            fontWeight: 300,
+            fontSize: "1rem",
+            color: "rgba(255,255,255,0.4)",
+            lineHeight: 1.9,
+            maxWidth: "480px",
+            margin: 0,
           }}
         >
-          Pre-order Now
-          {/* Hover shimmer */}
-          <span
-            className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300"
-            style={{ background: "white" }}
-          />
-        </button>
-      </motion.div>
+          Three flavors. One formula.<br />
+          Designed for those who train with intention.
+        </motion.p>
 
-      {/* Bottom padding */}
-      <div style={{ height: "6rem" }} />
+        {/* Flavor names */}
+        <motion.div
+          initial={{ y: 10, opacity: 0 }}
+          animate={inView ? { y: 0, opacity: 1 } : {}}
+          transition={{ duration: 0.7, delay: 1.1, ease: EASE_LUXURY }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+          }}
+        >
+          {FLAVORS.map((flavor, i) => (
+            <span
+              key={flavor.name}
+              style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
+            >
+              <FlavorName name={flavor.name} accent={flavor.accent} />
+              {i < FLAVORS.length - 1 && (
+                <span
+                  style={{
+                    color: "rgba(255,255,255,0.2)",
+                    fontFamily: "DM Sans, sans-serif",
+                    fontSize: "0.85rem",
+                    lineHeight: 1,
+                  }}
+                >
+                  ·
+                </span>
+              )}
+            </span>
+          ))}
+        </motion.div>
+
+        {/* CTA button */}
+        <motion.div
+          initial={{ y: 10, opacity: 0 }}
+          animate={inView ? { y: 0, opacity: 1 } : {}}
+          transition={{ duration: 0.7, delay: 1.1, ease: EASE_LUXURY }}
+        >
+          <CTAButton />
+        </motion.div>
+      </div>
+
+      {/* Footer */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={inView ? { opacity: 1 } : {}}
+        transition={{ duration: 0.8, delay: 1.4, ease: EASE_LUXURY }}
+        style={{
+          position: "absolute",
+          bottom: "2rem",
+          fontFamily: "DM Sans, sans-serif",
+          fontWeight: 300,
+          fontSize: "0.7rem",
+          color: "rgba(255,255,255,0.15)",
+          letterSpacing: "0.15em",
+          textTransform: "uppercase",
+          margin: 0,
+        }}
+      >
+        © 2025 AXION. All rights reserved.
+      </motion.p>
     </section>
+  );
+}
+
+/* ─── Sub-components ──────────────────────────────────────────── */
+
+function FlavorName({ name, accent }: { name: string; accent: string }) {
+  return (
+    <motion.span
+      whileHover={{ opacity: 1 }}
+      initial={{ opacity: 0.6 }}
+      style={{
+        fontFamily: "DM Sans, sans-serif",
+        fontWeight: 400,
+        fontSize: "0.85rem",
+        color: accent,
+        cursor: "default",
+        letterSpacing: "0.02em",
+        textDecoration: "none",
+        transition: "text-decoration 200ms",
+        display: "inline-block",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.textDecoration = `underline 1px ${accent}`;
+        (e.currentTarget as HTMLElement).style.opacity = "1";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.textDecoration = "none";
+        (e.currentTarget as HTMLElement).style.opacity = "0.6";
+      }}
+    >
+      {name}
+    </motion.span>
+  );
+}
+
+function CTAButton() {
+  return (
+    <button
+      onMouseEnter={(e) => {
+        const el = e.currentTarget as HTMLButtonElement;
+        el.style.borderColor = "rgba(255,255,255,1)";
+        el.style.color = "rgba(255,255,255,1)";
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget as HTMLButtonElement;
+        el.style.borderColor = "rgba(255,255,255,0.3)";
+        el.style.color = "rgba(255,255,255,0.7)";
+      }}
+      style={{
+        fontFamily: "DM Sans, sans-serif",
+        fontWeight: 400,
+        fontSize: "0.8rem",
+        color: "rgba(255,255,255,0.7)",
+        letterSpacing: "0.25em",
+        textTransform: "uppercase",
+        padding: "1rem 3rem",
+        border: "1px solid rgba(255,255,255,0.3)",
+        background: "transparent",
+        cursor: "pointer",
+        transition: "border-color 400ms ease, color 400ms ease",
+        outline: "none",
+      }}
+    >
+      Explore the collection
+    </button>
   );
 }
