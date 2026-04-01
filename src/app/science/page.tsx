@@ -1,24 +1,22 @@
 /**
- * Science page — "The Science Behind AXION"
- * Ingrédients, dosages, rôle de chaque composant
+ * Science page - The Formula
  */
 
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Science | AXION",
-  description: "The science behind AXION Electric Pre-Workout. Clinical doses, no fillers.",
+  description: "Clinically dosed. No BS. Every ingredient earns its place.",
 };
 
 const INGREDIENTS = [
-  { name: "Caffeine Anhydrous", dose: "200mg", desc: "Rapid energy delivery. Stimulates the central nervous system for immediate alertness and drive." },
-  { name: "L-Theanine", dose: "150mg", desc: "Amino acid from green tea. Smooths caffeine's edge for clean, jitter-free focus." },
-  { name: "Beta-Alanine", dose: "2,000-2,500mg", desc: "Buffers lactic acid in muscles. Push through fatigue barriers and extend your working sets." },
-  { name: "Citrulline Malate", dose: "4,000-6,000mg", desc: "Nitric oxide precursor. Maximizes blood flow, oxygen delivery, and the pump you feel." },
-  { name: "Alpha GPC", dose: "200-300mg", desc: "Choline source for acetylcholine synthesis. Sharpens the mind-muscle connection." },
-  { name: "L-Tyrosine", dose: "1,000mg", desc: "Dopamine precursor. Builds stress resilience and sustained mental performance." },
-  { name: "Grape Seed Extract", dose: "100mg", desc: "Potent antioxidant. Supports vascular health and post-training recovery." },
-  { name: "Vitamin B6 + B12", dose: "5mg / 100mcg", desc: "Essential coenzymes in energy metabolism. Convert fuel into usable ATP." },
+  { name: "Caffeine", dose: "200mg", desc: "Energy. Focus. No crash. Fast-acting stimulant that hits in minutes and keeps you locked in." },
+  { name: "L-Citrulline", dose: "4g", desc: "Improved blood flow and stronger pumps. Nitric oxide precursor for maximum oxygen delivery." },
+  { name: "L-Tyrosine", dose: "2g", desc: "Enhanced focus and mental drive. Dopamine precursor that builds stress resilience under load." },
+  { name: "Beta-Alanine", dose: "2g", desc: "Muscular endurance and performance. Buffers lactic acid so you push through every set." },
+  { name: "L-Theanine", dose: "100mg", desc: "Smooth energy. Reduced jitters. Works with caffeine for clean, controlled focus." },
+  { name: "Taurine", dose: "500mg", desc: "Hydration and performance support. Regulates cell volume and supports muscle contractions." },
+  { name: "Sodium", dose: "150mg", desc: "Electrolyte balance and muscle function. Essential for hydration during intense sessions." },
 ];
 
 export default function SciencePage() {
@@ -31,20 +29,20 @@ export default function SciencePage() {
           letterSpacing: "0.35em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)",
           marginBottom: "1.5rem",
         }}>
-          THE FORMULA
+          CLINICALLY DOSED. NO BS.
         </p>
         <h1 style={{
           fontFamily: "'PP Neue Corp Wide', sans-serif", fontWeight: 800,
           fontSize: "clamp(2.5rem, 6vw, 5rem)", color: "#fff", margin: "0 0 1rem",
           letterSpacing: "-0.02em", lineHeight: 1,
         }}>
-          Engineered Performance
+          Every Ingredient Earns Its Place
         </h1>
         <p style={{
           fontFamily: "'DM Sans', sans-serif", fontWeight: 300, fontStyle: "italic",
           fontSize: "1.1rem", color: "rgba(255,255,255,0.4)", maxWidth: "500px", margin: "0 auto",
         }}>
-          Every ingredient dosed at clinical levels. No fillers. No proprietary blends. Just results.
+          Nothing hidden. Nothing underdosed. Fully transparent formula. No proprietary blends.
         </p>
       </section>
 

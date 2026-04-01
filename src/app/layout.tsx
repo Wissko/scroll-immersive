@@ -9,9 +9,9 @@ import { LenisProvider } from "@/components/LenisProvider";
 import { Navbar } from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "AXION Electric Pre | Focus + Drive",
+  title: "AXION | Not a Powder. A Shot.",
   description:
-    "AXION Electric Pre is a premium pre-workout engineered for elite focus and explosive drive.",
+    "60mL pre-workout shot. Clinically dosed. No mixing. No compromise. Built for those who train to perform.",
   openGraph: {
     title: "AXION Electric Pre",
     description: "Focus + Drive",

@@ -1,12 +1,12 @@
 /**
- * About page — AXION brand story
+ * About page - AXION story
  */
 
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "About | AXION",
-  description: "The story behind AXION. No fillers. No compromises.",
+  description: "Built by lifters who were tired of underdosed pre-workouts.",
 };
 
 export default function AboutPage() {
@@ -26,7 +26,7 @@ export default function AboutPage() {
           fontSize: "clamp(2.5rem, 6vw, 4.5rem)", color: "#fff",
           margin: "0 0 2rem", lineHeight: 1.05,
         }}>
-          Born from the gym floor.
+          Built different.
         </h1>
 
         <div style={{ width: "60px", height: "1px", background: "rgba(255,255,255,0.15)", marginBottom: "2.5rem" }} />
@@ -36,41 +36,40 @@ export default function AboutPage() {
             fontFamily: "'DM Sans', sans-serif", fontWeight: 400,
             fontSize: "1rem", color: "rgba(255,255,255,0.55)", lineHeight: 1.8, margin: 0,
           }}>
-            AXION was born from a simple frustration: every pre-workout on the shelf was either underdosed, 
-            overhyped, or loaded with fillers. We wanted something different. Something honest.
+            No mixing. No filler. No wasted effort. AXION was built by lifters who were tired of underdosed
+            pre-workouts and overcomplicated routines. We wanted something that works. Fast.
           </p>
 
           <p style={{
             fontFamily: "'DM Sans', sans-serif", fontWeight: 400,
             fontSize: "1rem", color: "rgba(255,255,255,0.55)", lineHeight: 1.8, margin: 0,
           }}>
-            We built AXION with one principle: clinical doses of every ingredient, fully transparent labels, 
-            and flavors you actually look forward to. No proprietary blends. No hidden formulas. 
-            Every milligram accounted for.
+            60mL. Clinically dosed. No compromise. Every ingredient earns its place. Nothing hidden.
+            Nothing underdosed. Fully transparent formula with no proprietary blends.
           </p>
 
           <p style={{
             fontFamily: "'DM Sans', sans-serif", fontWeight: 400,
             fontSize: "1rem", color: "rgba(255,255,255,0.55)", lineHeight: 1.8, margin: 0,
           }}>
-            Whether you train at 5 AM or midnight, in a garage gym or a competition floor, 
-            AXION is engineered to match your intensity. Three flavors, one uncompromising formula.
+            Grab it. Shoot it. Go. Whether you train at 5 AM or midnight, AXION is built for those
+            who train to perform. Trusted by 50+ lifters pre-launch.
           </p>
 
           <p style={{
             fontFamily: "'DM Sans', sans-serif", fontWeight: 300, fontStyle: "italic",
             fontSize: "1.1rem", color: "rgba(255,255,255,0.35)", lineHeight: 1.7, margin: "1rem 0 0",
           }}>
-            "Train with intention. Fuel with precision."
+            "No crash. Just clean focus."
           </p>
         </div>
 
         {/* Values */}
         <div style={{ marginTop: "4rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
           {[
-            { title: "Transparency", text: "Full label disclosure. Every ingredient, every dose, visible." },
-            { title: "Clinical Dosing", text: "No pixie dusting. Ingredients at levels proven by research." },
-            { title: "Clean Formulation", text: "No artificial colors. No unnecessary fillers. Just performance." },
+            { title: "No Mixing", text: "Grab it. Shoot it. Go. 60mL pre-workout shot ready when you are." },
+            { title: "Only What Works", text: "Clinically dosed ingredients. No fluff. No fillers. No proprietary blends." },
+            { title: "Hits in Minutes", text: "Fast-acting formula. Real results. Designed to kick in before your warm-up is over." },
           ].map((v) => (
             <div key={v.title} style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.2rem" }}>
               <h3 style={{

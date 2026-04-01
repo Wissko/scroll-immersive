@@ -391,9 +391,9 @@ export default function ProductPage() {
           className="pdp-stats"
         >
           {[
-            { big: "< 10 MIN", sub: "Time to kick in" },
-            { big: "60 ML", sub: "One shot. That's all." },
-            { big: "0 SUGAR", sub: "Clean energy. No crash." },
+            { big: "60 ML", sub: "One shot. No mixing." },
+            { big: "< 10 MIN", sub: "Hits in minutes." },
+            { big: "7", sub: "Clinically dosed ingredients." },
           ].map((stat) => (
             <div key={stat.big}>
               <span
@@ -437,7 +437,7 @@ export default function ProductPage() {
             lineHeight: 1.7,
           }}
         >
-          {'"Hits way faster than any pre I\'ve used. No crash. Just clean focus the entire session."'}
+          {'"Hits way faster than any pre I\'ve used."'}
         </p>
         <span
           style={{
@@ -450,7 +450,7 @@ export default function ProductPage() {
             marginTop: "1rem",
           }}
         >
-          Beta Tester
+          Trusted by 50+ lifters pre-launch
         </span>
       </RevealSection>
 

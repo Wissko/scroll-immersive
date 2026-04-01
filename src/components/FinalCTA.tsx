@@ -127,8 +127,8 @@ export function FinalCTA() {
             margin: 0,
           }}
         >
-          Three flavors. One formula.<br />
-          Designed for those who train with intention.
+          Not a powder. A shot.<br />
+          Fast. Focused. Unstoppable.
         </motion.p>
 
         {/* Flavor names */}
@@ -259,7 +259,7 @@ function CTAButton() {
         outline: "none",
       }}
     >
-      Explore the collection
+      Join the First Drop
     </button>
   );
 }
