@@ -207,7 +207,6 @@ function ProductShowcase({
               width: "auto",
               height: "auto",
               objectFit: "contain",
-              mixBlendMode: "screen",
               position: "relative",
               zIndex: 1,
               cursor: "pointer",

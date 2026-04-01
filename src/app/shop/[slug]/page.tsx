@@ -117,7 +117,6 @@ export default function ProductPage() {
               width: "auto",
               height: "auto",
               objectFit: "contain",
-              mixBlendMode: "screen",
               position: "relative",
               zIndex: 1,
             }}
@@ -535,7 +534,6 @@ export default function ProductPage() {
                     maxWidth: "160px",
                     maxHeight: "200px",
                     objectFit: "contain",
-                    mixBlendMode: "screen",
                     marginBottom: "1.2rem",
                   }}
                 />
