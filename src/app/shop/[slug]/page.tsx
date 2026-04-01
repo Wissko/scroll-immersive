@@ -208,7 +208,7 @@ export default function ProductPage() {
             $39.99
           </motion.p>
 
-          {/* Add to Cart — premium animated button */}
+          {/* Pre-order — premium animated button */}
           <motion.button
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -242,7 +242,7 @@ export default function ProductPage() {
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <path d="M16 10a4 4 0 01-8 0" />
               </svg>
-              Add to Cart
+              Pre-order
             </span>
           </motion.button>
 

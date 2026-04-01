@@ -78,7 +78,7 @@ const PRODUCTS: ProductData[] = [
     description:
       "Grab it. Shoot it. Go. 60mL of clinically dosed performance in a single shot. No shaker, no mixing, no waiting. Built for serious lifters who train to perform.",
     specs: "200mg Caffeine · 4g L-Citrulline · 2g L-Tyrosine",
-    cta: "Shop Blue Razz",
+    cta: "Join the First Drop",
     accent: "#4F9EF8",
     background: "#040810",
     modelPath: "/models/blue-razz.glb",
@@ -93,7 +93,7 @@ const PRODUCTS: ProductData[] = [
     description:
       "Not a powder. A shot. Fast-acting, clinically dosed, zero compromise. 60mL that hits in minutes. No mixing, no filler, no wasted effort.",
     specs: "200mg Caffeine · 4g L-Citrulline · 2g Beta-Alanine",
-    cta: "Shop Mango",
+    cta: "Join the First Drop",
     accent: "#F5B942",
     background: "#0D0800",
     modelPath: "/models/mango.glb",
@@ -108,7 +108,7 @@ const PRODUCTS: ProductData[] = [
     description:
       "Fast. Focused. Unstoppable. Every ingredient earns its place. Nothing hidden, nothing underdosed. Fully transparent formula, no proprietary blends.",
     specs: "200mg Caffeine · 2g L-Tyrosine · 500mg Taurine",
-    cta: "Shop Grape",
+    cta: "Join the First Drop",
     accent: "#9B72F5",
     background: "#07040F",
     modelPath: "/models/grape.glb",
