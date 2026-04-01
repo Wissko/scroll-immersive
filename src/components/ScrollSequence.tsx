@@ -266,7 +266,7 @@ function ProductSection({ product }: { product: ProductData }) {
         position: "relative",
         width: "100%",
         height: "100vh",
-        backgroundColor: product.background,
+        backgroundColor: "transparent",
         display: "flex",
         alignItems: "stretch",
         overflow: "hidden",
