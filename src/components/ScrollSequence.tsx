@@ -12,6 +12,13 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { motion, useInView } from "framer-motion";
 import dynamic from "next/dynamic";
+import gsap from "gsap";
+import ScrollTrigger from "gsap/ScrollTrigger";
+
+// Register GSAP plugin
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
 
 // ProductCanvas est chargé côté client uniquement — R3F Canvas ne tourne pas en SSR
 const ProductCanvas = dynamic(
@@ -119,9 +126,76 @@ const PRODUCTS: ProductData[] = [
 // ──────────────────────────────────────────────────────
 
 export function ScrollSequence() {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !wrapperRef.current) return;
+
+    const sections = wrapperRef.current.querySelectorAll<HTMLElement>(".axion-product-section");
+    const triggers: ScrollTrigger[] = [];
+
+    sections.forEach((section, i) => {
+      // 3D depth: section enters from below with scale + blur
+      const enterTrigger = ScrollTrigger.create({
+        trigger: section,
+        start: "top bottom",
+        end: "top top",
+        scrub: 1.5,
+        onUpdate: (self) => {
+          const p = self.progress; // 0 → 1 as section enters
+          const scale = 1.08 - 0.08 * p; // 1.08 → 1
+          const blur = 6 - 6 * p; // 6 → 0
+          const opacity = 0.2 + 0.8 * p; // 0.2 → 1
+          gsap.set(section, {
+            scale,
+            filter: `blur(${blur}px)`,
+            opacity,
+            transformOrigin: "center center",
+          });
+        },
+      });
+      triggers.push(enterTrigger);
+
+      // 3D depth: section exits upward with scale + blur
+      const exitTrigger = ScrollTrigger.create({
+        trigger: section,
+        start: "bottom bottom",
+        end: "bottom top",
+        scrub: 1.5,
+        onUpdate: (self) => {
+          const p = self.progress; // 0 → 1 as section leaves
+          const scale = 1 - 0.15 * p; // 1 → 0.85
+          const blur = 8 * p; // 0 → 8
+          const opacity = 1 - 0.7 * p; // 1 → 0.3
+          gsap.set(section, {
+            scale,
+            filter: `blur(${blur}px)`,
+            opacity,
+            transformOrigin: "center center",
+          });
+        },
+      });
+      triggers.push(exitTrigger);
+    });
+
+    // Snap to sections
+    const snapTrigger = ScrollTrigger.create({
+      snap: {
+        snapTo: 1 / (sections.length - 1),
+        duration: { min: 0.3, max: 0.6 },
+        ease: "power2.inOut",
+      },
+    });
+    triggers.push(snapTrigger);
+
+    return () => {
+      triggers.forEach((t) => t.kill());
+    };
+  }, []);
+
   return (
     /* Wrapper : empilement vertical des 3 sections */
-    <div style={{ width: "100%" }}>
+    <div ref={wrapperRef} style={{ width: "100%" }}>
       {PRODUCTS.map((product) => (
         <ProductSection key={product.id} product={product} />
       ))}
@@ -239,6 +313,7 @@ function ProductSection({ product }: { product: ProductData }) {
   return (
     <section
       ref={sectionRef}
+      className="axion-product-section"
       style={{
         /* Section pleine hauteur avec fond couleur produit */
         position: "relative",
@@ -248,6 +323,7 @@ function ProductSection({ product }: { product: ProductData }) {
         display: "flex",
         alignItems: "stretch",
         overflow: "hidden",
+        willChange: "transform, filter, opacity",
       }}
     >
       {/* ── Éclairs aléatoires drama ──────────────────── */}
