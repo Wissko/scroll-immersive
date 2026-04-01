@@ -654,27 +654,40 @@ function CTAButton({
   return (
     <Link
       href={href}
-      className="axion-cta"
+      className="axion-home-cta"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        fontFamily: "'DM Sans', sans-serif",
-        fontWeight: 700,
-        fontSize: "0.8rem",
+        fontFamily: "'PP Neue Corp Wide', sans-serif",
+        fontWeight: 800,
+        fontSize: "0.85rem",
         letterSpacing: "0.2em",
         textTransform: "uppercase",
-        padding: "0.75rem 2rem",
-        border: "1px solid #fff",
-        backgroundColor: hovered ? "#fff" : "transparent",
-        color: hovered ? "#000" : "#fff",
-        transition: "background-color 400ms ease, color 400ms ease",
+        padding: "1.1rem 2.8rem",
+        border: "none",
+        background: "#fff",
+        color: "#000",
         cursor: "pointer",
         outline: "none",
         textDecoration: "none",
-        display: "inline-block",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.6rem",
+        position: "relative",
+        overflow: "hidden",
+        transition: "transform 300ms cubic-bezier(0.16,1,0.3,1), box-shadow 300ms ease",
+        transform: hovered ? "scale(1.04)" : "scale(1)",
+        boxShadow: hovered ? "0 0 30px rgba(255,255,255,0.15)" : "none",
       }}
     >
       {label}
+      <span style={{
+        display: "inline-block",
+        transition: "transform 300ms cubic-bezier(0.16,1,0.3,1)",
+        transform: hovered ? "translateX(4px)" : "translateX(0)",
+      }}>
+        →
+      </span>
     </Link>
   );
 }
