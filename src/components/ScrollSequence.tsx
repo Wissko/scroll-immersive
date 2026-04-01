@@ -1,826 +1,588 @@
-'use client';
+"use client";
 
 /**
- * ScrollSequence — SVG Mask Blinds Scroll Transitions + Zoom Explosive + Burst Reveal
- *
- * Architecture:
- *   - 300vh sticky section (outer), 100vh sticky container (inner)
- *   - 3 full-screen layers stacked (position absolute, inset 0)
- *       Layer 1 (Blue Razz) : always visible, no mask
- *       Layer 2 (Mango)     : revealed via 8 horizontal SVG blinds, scroll 0→33%
- *       Layer 3 (Grape)     : revealed via 8 horizontal SVG blinds, scroll 33→66%
- *   - Each layer plays 30-frame autoplay at 80ms/frame, all loops simultaneously
- *   - SVG <image> href updated via ref (no React re-render per frame)
- *   - GSAP scale amplifier: each SVG scales 1.0→1.25 as frames progress
- *   - Burst reveal: clip-path circle explosion at frame 28, switches active product
- *   - Flash accent: color flash at product switch moment (350ms into burst)
- *   - Pastille dots: click to manually switch product with burst animation
- *   - Text overlay switches via Framer Motion AnimatePresence (y + opacity stagger)
- *   - Progress bar: 3 accent-colored segments driven by scroll progress
- *   - Vignette + accent glow for ambiance
- *   - Lenis is already bootstrapped in LenisProvider; no re-init here
- *   - Full cleanup (intervals + ScrollTriggers + timeouts) on unmount
+ * ScrollSequence.tsx — AXION Premium Product Showcase
+ * ─────────────────────────────────────────────────────
+ * 3 products, 1 image each (frame-1.png).
+ * Single 100vh section — products transition via "Vertical Reveal".
+ * Clean, editorial magazine luxury aesthetic.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import gsap from 'gsap';
-import ScrollTrigger from 'gsap/ScrollTrigger';
+import React, { useState, useRef, useCallback, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
 
-// ─── Register GSAP plugins ────────────────────────────────────────────────────
-gsap.registerPlugin(ScrollTrigger);
+// ─────────────────────────────────────────────────────
+// PRODUCT DATA
+// ─────────────────────────────────────────────────────
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const BLIND_COUNT = 8;
-const BLIND_HEIGHT = 100 / BLIND_COUNT; // 12.5 SVG units per blind
-const FRAME_COUNT = 30;
-const FRAME_INTERVAL_MS = 80;
-const BURST_FRAME_TRIGGER = 28; // frame at which burst kicks in
+interface Product {
+  id: string;
+  label: string;
+  name: string;
+  tagline: string;
+  description: string;
+  specs: string;
+  cta: string;
+  accent: string;
+  /** Subtle background tint at 8% opacity */
+  bgTint: string;
+  imageSrc: string;
+}
 
-// ─── Product definitions ──────────────────────────────────────────────────────
-const PRODUCTS = [
+const PRODUCTS: Product[] = [
   {
-    id: 'blue-razz',
-    name: 'Blue Razz',
-    label: 'ELECTRIC PRE-WORKOUT',
-    accent: '#4F9EF8',
-    frameDir: '/images/Frames_blue',
-    accroche: 'Laser focus. Explosive energy.',
-    ingredients: [
-      'Caffeine 200mg',
-      'L-Theanine 150mg',
-      'Beta-Alanine 2000mg',
-      'Citrulline 4000mg',
-      'Alpha GPC 200mg',
-    ],
-    cta: 'Shop Blue Razz →',
-    textSide: 'right' as const,
-  },
-  {
-    id: 'mango',
-    name: 'Mango',
-    label: 'ELECTRIC PRE-WORKOUT',
-    accent: '#F5B942',
-    frameDir: '/images/Frames_orange',
-    accroche: 'Tropical surge. Peak performance.',
-    ingredients: [
-      'Caffeine 200mg',
-      'Beta-Alanine 2500mg',
-      'Citrulline 6000mg',
-      'Vit B6 5mg',
-      'Vit B12 100mcg',
-    ],
-    cta: 'Shop Mango →',
-    textSide: 'left' as const,
+    id: "blue-razz",
+    label: "ELECTRIC PRE-WORKOUT",
+    name: "Blue Razz",
+    tagline: "Razor sharp focus",
+    description:
+      "Engineered for athletes who demand precision. Blue Razz delivers clean, sustained energy with zero crash — powered by 200mg caffeine, L-Theanine, and 4g Citrulline Malate.",
+    specs: "200mg Caffeine · 150mg L-Theanine · 4g Citrulline",
+    cta: "Shop Blue Razz",
+    accent: "#4F9EF8",
+    bgTint: "#4F9EF808",
+    imageSrc: "/images/Frames_blue/frame-1.png",
   },
   {
-    id: 'grape',
-    name: 'Grape',
-    label: 'ELECTRIC PRE-WORKOUT',
-    accent: '#9B72F5',
-    frameDir: '/images/Frames_purple',
-    accroche: 'Dark focus. Night-mode power.',
-    ingredients: [
-      'Caffeine 200mg',
-      'L-Tyrosine 1000mg',
-      'Alpha GPC 300mg',
-      'Citrulline 6000mg',
-      'Grape Seed 100mg',
-    ],
-    cta: 'Shop Grape →',
-    textSide: 'right' as const,
+    id: "mango",
+    label: "ELECTRIC PRE-WORKOUT",
+    name: "Mango",
+    tagline: "Tropical surge, peak output",
+    description:
+      "Fuel your longest sessions with a tropical explosion of flavor and performance. 6g Citrulline Malate, Beta-Alanine complex, and B-vitamins to keep you locked in from rep one to the last.",
+    specs: "200mg Caffeine · 2.5g Beta-Alanine · 6g Citrulline",
+    cta: "Shop Mango",
+    accent: "#F5B942",
+    bgTint: "#F5B94208",
+    imageSrc: "/images/Frames_orange/frame-1.png",
   },
-] as const;
-
-// ─── Framer Motion variants ───────────────────────────────────────────────────
-
-/** Stagger container for text lines */
-const textContainerVariants = {
-  hidden: {},
-  visible: {
-    transition: { staggerChildren: 0.06, delayChildren: 0.1 },
+  {
+    id: "grape",
+    label: "ELECTRIC PRE-WORKOUT",
+    name: "Grape",
+    tagline: "Dark focus. Night mode power.",
+    description:
+      "When the lights go down, your performance doesn't. Grape combines a nootropic stack — Alpha GPC, L-Tyrosine, Grape Seed Extract — with 6g Citrulline for an unmatched mind-muscle connection.",
+    specs: "200mg Caffeine · 1g L-Tyrosine · 300mg Alpha GPC",
+    cta: "Shop Grape",
+    accent: "#9B72F5",
+    bgTint: "#9B72F508",
+    imageSrc: "/images/Frames_purple/frame-1.png",
   },
-  exit: {
-    transition: { staggerChildren: 0.03 },
+];
+
+// ─────────────────────────────────────────────────────
+// FRAMER MOTION VARIANTS
+// ─────────────────────────────────────────────────────
+
+/** Content block exit: slide up + fade out */
+const contentExit = {
+  y: -60,
+  opacity: 0,
+  transition: {
+    duration: 0.5,
+    ease: [0.4, 0, 0.2, 1] as [number, number, number, number],
   },
 };
 
-/** Each text line: y + opacity */
-const textLineVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
+/** Content block enter: slide up from below + fade in */
+const contentEnter = {
+  initial: { y: 60, opacity: 0 },
+  animate: {
     y: 0,
     opacity: 1,
     transition: {
-      duration: 0.5,
-      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+      duration: 0.6,
+      ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
+      delay: 0.2,
+    },
+  },
+  exit: contentExit,
+};
+
+/** Image: scale + opacity + blur reveal */
+const imageVariants = {
+  initial: {
+    scale: 0.92,
+    opacity: 0,
+    filter: "blur(4px)",
+  },
+  animate: {
+    scale: 1,
+    opacity: 1,
+    filter: "blur(0px)",
+    transition: {
+      duration: 0.7,
+      ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
+      delay: 0.15,
     },
   },
   exit: {
-    y: -10,
+    scale: 0.96,
     opacity: 0,
+    filter: "blur(4px)",
     transition: {
-      duration: 0.25,
-      ease: [0.55, 0, 1, 0.45] as [number, number, number, number],
+      duration: 0.4,
+      ease: [0.4, 0, 0.2, 1] as [number, number, number, number],
     },
   },
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
+// COMPONENT
+// ─────────────────────────────────────────────────────
+
 export function ScrollSequence() {
-  // Outer section ref (300vh — scroll trigger anchor)
-  const sectionRef = useRef<HTMLElement>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const product = PRODUCTS[currentIndex];
 
-  // ── SVG <image> refs — href updated directly, bypassing React state ────────
-  const imgRef0 = useRef<SVGImageElement | null>(null);
-  const imgRef1 = useRef<SVGImageElement | null>(null);
-  const imgRef2 = useRef<SVGImageElement | null>(null);
+  /** Touch tracking refs for swipe detection */
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
 
-  // ── SVG container refs — GSAP scale applied directly ──────────────────────
-  const svgRefs = useRef<(SVGSVGElement | null)[]>([null, null, null]);
+  // ── Navigation helpers ──────────────────────────────
 
-  // ── SVG <g> refs for blind rects — animated by GSAP attr tween ────────────
-  const blindsRef1 = useRef<SVGGElement | null>(null);
-  const blindsRef2 = useRef<SVGGElement | null>(null);
-
-  // ── Progress bar fill refs — width % set directly ─────────────────────────
-  const fillRef0 = useRef<HTMLDivElement | null>(null);
-  const fillRef1 = useRef<HTMLDivElement | null>(null);
-  const fillRef2 = useRef<HTMLDivElement | null>(null);
-
-  // ── Active layer: state (trigger re-render for text) + ref (no stale closure)
-  const [activeLayer, setActiveLayer] = useState(0);
-  const activeLayerRef = useRef(0);
-
-  // ── Accent glow div ref — color updated directly on layer change ───────────
-  const glowRef = useRef<HTMLDivElement | null>(null);
-
-  // ── Burst + flash overlay refs ─────────────────────────────────────────────
-  const burstRef = useRef<HTMLDivElement | null>(null);
-  const flashRef = useRef<HTMLDivElement | null>(null);
-
-  // ── Burst state refs ───────────────────────────────────────────────────────
-  const isBurstingRef = useRef(false);
-  const burstTriggeredRef = useRef<boolean[]>([false, false, false]);
-  const burstTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // ─── triggerBurst — clip-path circle explosion + flash + product switch ─────
-  const triggerBurst = useCallback((nextLayer: number) => {
-    if (isBurstingRef.current) return;
-    isBurstingRef.current = true;
-
-    const burst = burstRef.current;
-    const flash = flashRef.current;
-
-    if (!burst) {
-      isBurstingRef.current = false;
-      return;
-    }
-
-    const accentColor = PRODUCTS[nextLayer].accent;
-
-    // Reset and show burst overlay
-    gsap.set(burst, { clipPath: 'circle(0% at 50% 50%)', display: 'block' });
-
-    // Burst IN: circle explodes from center (0% → 150%)
-    gsap.to(burst, {
-      clipPath: 'circle(150% at 50% 50%)',
-      duration: 0.7,
-      ease: 'power3.inOut',
-      onComplete: () => {
-        // Burst OUT: circle retracts (150% → 0%)
-        gsap.to(burst, {
-          clipPath: 'circle(0% at 50% 50%)',
-          duration: 0.6,
-          ease: 'power2.out',
-          delay: 0.1,
-          onComplete: () => {
-            gsap.set(burst, { display: 'none' });
-            isBurstingRef.current = false;
-          },
-        });
-      },
-    });
-
-    // At 350ms (mid-burst): switch product + fire flash accent
-    burstTimeoutRef.current = setTimeout(() => {
-      // Update active layer
-      activeLayerRef.current = nextLayer;
-      setActiveLayer(nextLayer);
-
-      // Update glow color
-      if (glowRef.current) {
-        glowRef.current.style.background = `radial-gradient(ellipse at center bottom, ${accentColor}33 0%, transparent 70%)`;
-      }
-
-      // Flash accent (electric spark effect)
-      if (flash) {
-        gsap.set(flash, { background: accentColor, opacity: 0, display: 'block' });
-        gsap.to(flash, {
-          opacity: 0.3,
-          duration: 0.15,
-          ease: 'power2.out',
-          onComplete: () => {
-            gsap.to(flash, {
-              opacity: 0,
-              duration: 0.15,
-              ease: 'power2.in',
-              onComplete: () => {
-                gsap.set(flash, { display: 'none' });
-              },
-            });
-          },
-        });
-      }
-    }, 350);
-  }, []); // all accessed values are refs or stable (setActiveLayer)
-
-  // ─── Autoplay: all 3 layers loop simultaneously at 80ms ─────────────────────
-  // Also applies GSAP scale amplifier + triggers burst at frame 28+
-  useEffect(() => {
-    const frameNums = [1, 1, 1];
-    const imgRefs = [imgRef0, imgRef1, imgRef2];
-
-    const intervals = PRODUCTS.map((product, i) => {
-      return setInterval(() => {
-        // Advance frame, wrap at FRAME_COUNT
-        frameNums[i] = frameNums[i] >= FRAME_COUNT ? 1 : frameNums[i] + 1;
-
-        // Update SVG image href directly — no React state, no re-render
-        const el = imgRefs[i].current;
-        if (el) {
-          el.setAttribute('href', `${product.frameDir}/frame-${frameNums[i]}.png`);
-        }
-
-        // ── Scale amplifier: 1.0 → 1.25 as frames progress ──────────────────
-        const frameProgress = frameNums[i] / FRAME_COUNT;
-        const scale = 1 + frameProgress * 0.25;
-        const svgEl = svgRefs.current[i];
-        if (svgEl) {
-          gsap.set(svgEl, { scale, transformOrigin: 'center center' });
-        }
-
-        // ── Reset burst guard when frame wraps back to 1 ────────────────────
-        if (frameNums[i] === 1) {
-          burstTriggeredRef.current[i] = false;
-        }
-
-        // ── Burst trigger: only for active layer, frame 28+, once per cycle ──
-        if (
-          i === activeLayerRef.current &&
-          frameNums[i] >= BURST_FRAME_TRIGGER &&
-          !burstTriggeredRef.current[i]
-        ) {
-          burstTriggeredRef.current[i] = true;
-          const nextLayer = (i + 1) % PRODUCTS.length;
-          triggerBurst(nextLayer);
-        }
-      }, FRAME_INTERVAL_MS);
-    });
-
-    return () => {
-      intervals.forEach(clearInterval);
-      if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
-    };
-  }, [triggerBurst]);
-
-  // ─── GSAP ScrollTrigger: blind mask animations + progress bar ────────────────
-  useEffect(() => {
-    const section = sectionRef.current;
-    if (!section) return;
-
-    const createdTriggers: ScrollTrigger[] = [];
-
-    // Helper: update active layer without stale closure
-    const updateActiveLayer = (newLayer: number) => {
-      if (newLayer !== activeLayerRef.current) {
-        activeLayerRef.current = newLayer;
-        setActiveLayer(newLayer);
-        if (glowRef.current) {
-          const accent = PRODUCTS[newLayer].accent;
-          glowRef.current.style.background = `radial-gradient(ellipse at center bottom, ${accent}33 0%, transparent 70%)`;
-        }
-      }
-    };
-
-    // ── Layer 2 (Mango): scroll 0% → 33.333% of section ─────────────────────
-    if (blindsRef1.current) {
-      const blindRects1 = Array.from(
-        blindsRef1.current.querySelectorAll('rect'),
-      ) as SVGRectElement[];
-
-      if (blindRects1.length > 0) {
-        const tween2 = gsap.to(blindRects1, {
-          attr: { width: 100 },
-          stagger: 0.04,
-          ease: 'power2.inOut',
-          scrollTrigger: {
-            trigger: section,
-            start: 'top top',
-            end: '33.333% top',
-            scrub: 2,
-            onUpdate(self) {
-              if (fillRef0.current) {
-                fillRef0.current.style.width = `${self.progress * 100}%`;
-              }
-              updateActiveLayer(self.progress > 0.5 ? 1 : 0);
-            },
-          },
-        });
-        const st2 = tween2.scrollTrigger;
-        if (st2) createdTriggers.push(st2);
-      }
-    }
-
-    // ── Layer 3 (Grape): scroll 33.333% → 66.666% of section ────────────────
-    if (blindsRef2.current) {
-      const blindRects2 = Array.from(
-        blindsRef2.current.querySelectorAll('rect'),
-      ) as SVGRectElement[];
-
-      if (blindRects2.length > 0) {
-        const tween3 = gsap.to(blindRects2, {
-          attr: { width: 100 },
-          stagger: 0.04,
-          ease: 'power2.inOut',
-          scrollTrigger: {
-            trigger: section,
-            start: '33.333% top',
-            end: '66.666% top',
-            scrub: 2,
-            onUpdate(self) {
-              if (fillRef1.current) {
-                fillRef1.current.style.width = `${self.progress * 100}%`;
-              }
-              updateActiveLayer(self.progress > 0.5 ? 2 : 1);
-            },
-          },
-        });
-        const st3 = tween3.scrollTrigger;
-        if (st3) createdTriggers.push(st3);
-      }
-    }
-
-    // ── Progress bar segment 3 (Grape): scroll 66.666% → 100% ───────────────
-    const tweenProgress3 = gsap.to(
-      {},
-      {
-        scrollTrigger: {
-          trigger: section,
-          start: '66.666% top',
-          end: 'bottom bottom',
-          scrub: 2,
-          onUpdate(self) {
-            if (fillRef2.current) {
-              fillRef2.current.style.width = `${self.progress * 100}%`;
-            }
-          },
-        },
-      },
-    );
-    const stP3 = tweenProgress3.scrollTrigger;
-    if (stP3) createdTriggers.push(stP3);
-
-    return () => {
-      createdTriggers.forEach((t) => t.kill());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const goTo = useCallback((index: number) => {
+    setCurrentIndex(index);
   }, []);
 
-  // ─── Pastille dot click: manual burst (no zoom — just clip-path + flash) ─────
-  const handleDotClick = useCallback(
-    (targetLayer: number) => {
-      if (targetLayer === activeLayerRef.current) return;
-      triggerBurst(targetLayer);
+  const goPrev = useCallback(() => {
+    setCurrentIndex((i) => (i - 1 + PRODUCTS.length) % PRODUCTS.length);
+  }, []);
+
+  const goNext = useCallback(() => {
+    setCurrentIndex((i) => (i + 1) % PRODUCTS.length);
+  }, []);
+
+  // ── Touch / Swipe handlers ──────────────────────────
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = null;
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      touchEndX.current = e.changedTouches[0].clientX;
+      if (touchStartX.current !== null && touchEndX.current !== null) {
+        const deltaX = touchStartX.current - touchEndX.current;
+        if (Math.abs(deltaX) > 50) {
+          deltaX > 0 ? goNext() : goPrev();
+        }
+      }
     },
-    [triggerBurst],
+    [goNext, goPrev]
   );
 
-  // ─── Derived: active product data ────────────────────────────────────────────
-  const product = PRODUCTS[activeLayer];
+  // ── Keyboard navigation ─────────────────────────────
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") goNext();
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") goPrev();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [goNext, goPrev]);
+
+  // ─────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────
+
   return (
-    /**
-     * Outer section — 300vh total height
-     * Creates the scroll travel distance for all ScrollTrigger zones
-     */
     <section
-      ref={sectionRef}
-      style={{ height: '300vh', position: 'relative', background: '#050505' }}
-      aria-label="Axion product showcase"
+      style={{
+        position: "relative",
+        height: "100vh",
+        width: "100%",
+        overflow: "hidden",
+        /* Background transitions to accent tint on product change */
+        backgroundColor: product.bgTint,
+        transition: "background-color 800ms ease",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
-      {/**
-       * Sticky container — stays at top:0 for the full 300vh scroll
-       * All visual layers sit inside here
-       */}
+      {/* ── Deep base layer — always #050505 ────────── */}
       <div
         style={{
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflow: 'hidden',
+          position: "absolute",
+          inset: 0,
+          backgroundColor: "#050505",
+          zIndex: 0,
+        }}
+      />
+
+      {/* ── Accent tint overlay — transitions with product ─ */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundColor: product.bgTint,
+          transition: "background-color 800ms ease",
+          zIndex: 1,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* ── Vignette radial overlay ──────────────────── */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(ellipse at center, transparent 30%, #050505 100%)",
+          opacity: 0.5,
+          pointerEvents: "none",
+          zIndex: 2,
+        }}
+      />
+
+      {/* ── Top-left: product indicator (01 / 03) ───── */}
+      <div
+        style={{
+          position: "absolute",
+          top: "2rem",
+          left: "2rem",
+          zIndex: 10,
+          fontFamily: "'PP Neue Corp Wide', sans-serif",
+          fontWeight: 800,
+          fontSize: "0.75rem",
+          letterSpacing: "0.15em",
+          color: "rgba(255,255,255,0.2)",
+          userSelect: "none",
         }}
       >
-        {/* ── Layer 1: Blue Razz — always visible, no mask ──────────────────── */}
-        <svg
-          ref={(el) => { svgRefs.current[0] = el; }}
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 0 }}
-          aria-hidden="true"
-        >
-          <image
-            ref={imgRef0}
-            href="/images/Frames_blue/frame-1.png"
-            x="0"
-            y="0"
-            width="100"
-            height="100"
-            preserveAspectRatio="xMidYMid slice"
-            style={{ mixBlendMode: 'screen' }}
-          />
-        </svg>
-
-        {/* ── Layer 2: Mango — revealed by 8 horizontal SVG blinds ──────────── */}
-        <svg
-          ref={(el) => { svgRefs.current[1] = el; }}
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 1 }}
-          aria-hidden="true"
-        >
-          <defs>
-            {/**
-             * SVG mask for Mango layer
-             * Black base = hidden. White blind rects = revealed.
-             * GSAP animates rect width: 0 → 100 with stagger.
-             */}
-            <mask id="mask-mango" maskUnits="userSpaceOnUse">
-              <rect x="0" y="0" width="100" height="100" fill="black" />
-              <g ref={blindsRef1}>
-                {Array.from({ length: BLIND_COUNT }, (_, i) => (
-                  <rect
-                    key={i}
-                    x="0"
-                    y={i * BLIND_HEIGHT}
-                    width="0"
-                    height={BLIND_HEIGHT}
-                    fill="white"
-                  />
-                ))}
-              </g>
-            </mask>
-          </defs>
-          <image
-            ref={imgRef1}
-            href="/images/Frames_orange/frame-1.png"
-            x="0"
-            y="0"
-            width="100"
-            height="100"
-            preserveAspectRatio="xMidYMid slice"
-            mask="url(#mask-mango)"
-            style={{ mixBlendMode: 'screen' }}
-          />
-        </svg>
-
-        {/* ── Layer 3: Grape — revealed by 8 horizontal SVG blinds ──────────── */}
-        <svg
-          ref={(el) => { svgRefs.current[2] = el; }}
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 2 }}
-          aria-hidden="true"
-        >
-          <defs>
-            <mask id="mask-grape" maskUnits="userSpaceOnUse">
-              <rect x="0" y="0" width="100" height="100" fill="black" />
-              <g ref={blindsRef2}>
-                {Array.from({ length: BLIND_COUNT }, (_, i) => (
-                  <rect
-                    key={i}
-                    x="0"
-                    y={i * BLIND_HEIGHT}
-                    width="0"
-                    height={BLIND_HEIGHT}
-                    fill="white"
-                  />
-                ))}
-              </g>
-            </mask>
-          </defs>
-          <image
-            ref={imgRef2}
-            href="/images/Frames_purple/frame-1.png"
-            x="0"
-            y="0"
-            width="100"
-            height="100"
-            preserveAspectRatio="xMidYMid slice"
-            mask="url(#mask-grape)"
-            style={{ mixBlendMode: 'screen' }}
-          />
-        </svg>
-
-        {/* ── Vignette overlay — radial gradient, darkens edges ─────────────── */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 3,
-            pointerEvents: 'none',
-            background:
-              'radial-gradient(ellipse at center, transparent 40%, #050505 100%)',
-            opacity: 0.6,
-          }}
-        />
-
-        {/* ── Accent glow — centered bottom, follows active product color ─────── */}
-        <div
-          ref={glowRef}
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '60%',
-            height: '40%',
-            background:
-              'radial-gradient(ellipse at center bottom, #4F9EF833 0%, transparent 70%)',
-            filter: 'blur(60px)',
-            zIndex: 4,
-            pointerEvents: 'none',
-          }}
-        />
-
-        {/* ── Burst overlay — clip-path circle explosion, #050505 ───────────── */}
-        <div
-          ref={burstRef}
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: '#050505',
-            zIndex: 50,
-            display: 'none',
-            pointerEvents: 'none',
-            clipPath: 'circle(0% at 50% 50%)',
-          }}
-        />
-
-        {/* ── Flash overlay — accent color spark at product switch ──────────── */}
-        <div
-          ref={flashRef}
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 51,
-            display: 'none',
-            pointerEvents: 'none',
-            opacity: 0,
-          }}
-        />
-
-        {/* ── Text overlay — switches per active layer ─────────────────────── */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`text-${activeLayer}`}
-            variants={textContainerVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            style={{
-              position: 'absolute',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              ...(product.textSide === 'right'
-                ? { right: '5vw' }
-                : { left: '5vw' }),
-              zIndex: 10,
-              maxWidth: '320px',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {/* Label */}
-            <motion.span
-              variants={textLineVariants}
-              style={{
-                fontSize: '0.7rem',
-                letterSpacing: '0.25em',
-                textTransform: 'uppercase',
-                color: product.accent,
-                marginBottom: '0.75rem',
-                display: 'block',
-                fontFamily: '"DM Sans", sans-serif',
-                fontWeight: 300,
-              }}
-            >
-              {product.label}
-            </motion.span>
-
-            {/* Product name */}
-            <motion.h2
-              variants={textLineVariants}
-              style={{
-                fontFamily: '"PP Neue Corp Wide", sans-serif',
-                fontWeight: 800,
-                fontSize: '3rem',
-                color: '#ffffff',
-                lineHeight: 1,
-                margin: 0,
-                marginBottom: '0.6rem',
-              }}
-            >
-              {product.name}
-            </motion.h2>
-
-            {/* Accroche */}
-            <motion.p
-              variants={textLineVariants}
-              style={{
-                fontStyle: 'italic',
-                color: 'rgba(255,255,255,0.6)',
-                fontSize: '1rem',
-                margin: 0,
-                marginBottom: '1.5rem',
-                lineHeight: 1.5,
-                fontFamily: '"DM Sans", sans-serif',
-                fontWeight: 300,
-              }}
-            >
-              {product.accroche}
-            </motion.p>
-
-            {/* Accent separator line */}
-            <motion.div
-              variants={textLineVariants}
-              style={{
-                width: '40px',
-                height: '1px',
-                background: product.accent,
-                marginBottom: '1.2rem',
-              }}
-            />
-
-            {/* Ingredient list */}
-            <motion.div
-              variants={textLineVariants}
-              style={{ marginBottom: '1.8rem' }}
-            >
-              {product.ingredients.map((ing, i) => (
-                <div
-                  key={i}
-                  style={{
-                    padding: '0.4rem 0',
-                    borderBottom: '1px solid rgba(255,255,255,0.06)',
-                    fontSize: '0.85rem',
-                    color: 'rgba(255,255,255,0.5)',
-                    fontFamily: '"DM Sans", sans-serif',
-                    fontWeight: 400,
-                  }}
-                >
-                  {ing}
-                </div>
-              ))}
-            </motion.div>
-
-            {/* CTA link */}
-            <motion.a
-              variants={textLineVariants}
-              href="#"
-              style={{
-                fontSize: '0.8rem',
-                letterSpacing: '0.2em',
-                color: product.accent,
-                textDecoration: 'underline',
-                textDecorationColor: product.accent,
-                textDecorationThickness: '1px',
-                textUnderlineOffset: '3px',
-                alignSelf: 'flex-start',
-                fontFamily: '"DM Sans", sans-serif',
-              }}
-            >
-              {product.cta}
-            </motion.a>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* ── Pastille dots — manual product switching with burst ───────────── */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '4rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 12,
-            display: 'flex',
-            gap: '14px',
-            alignItems: 'center',
-          }}
-        >
-          {PRODUCTS.map((p, i) => (
-            <button
-              key={p.id}
-              onClick={() => handleDotClick(i)}
-              aria-label={`Switch to ${p.name}`}
-              style={{
-                width: i === activeLayer ? '10px' : '7px',
-                height: i === activeLayer ? '10px' : '7px',
-                borderRadius: '50%',
-                border: 'none',
-                padding: 0,
-                cursor: i === activeLayer ? 'default' : 'pointer',
-                background: i === activeLayer ? p.accent : 'rgba(255,255,255,0.25)',
-                transition: 'background 0.3s ease, width 0.2s ease, height 0.2s ease',
-                outline: 'none',
-              }}
-            />
-          ))}
-        </div>
-
-        {/* ── Progress bar — 3 accent segments, bottom center ──────────────── */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            bottom: '2rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 12,
-            display: 'flex',
-            gap: '4px',
-            width: '200px',
-          }}
-        >
-          {/* Segment 0 — Blue Razz */}
-          <div
-            style={{
-              flex: 1,
-              height: '2px',
-              background: 'rgba(255,255,255,0.1)',
-              borderRadius: '1px',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              ref={fillRef0}
-              style={{
-                height: '100%',
-                width: '0%',
-                background: PRODUCTS[0].accent,
-                borderRadius: '1px',
-              }}
-            />
-          </div>
-
-          {/* Segment 1 — Mango */}
-          <div
-            style={{
-              flex: 1,
-              height: '2px',
-              background: 'rgba(255,255,255,0.1)',
-              borderRadius: '1px',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              ref={fillRef1}
-              style={{
-                height: '100%',
-                width: '0%',
-                background: PRODUCTS[1].accent,
-                borderRadius: '1px',
-              }}
-            />
-          </div>
-
-          {/* Segment 2 — Grape */}
-          <div
-            style={{
-              flex: 1,
-              height: '2px',
-              background: 'rgba(255,255,255,0.1)',
-              borderRadius: '1px',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              ref={fillRef2}
-              style={{
-                height: '100%',
-                width: '0%',
-                background: PRODUCTS[2].accent,
-                borderRadius: '1px',
-              }}
-            />
-          </div>
-        </div>
+        {String(currentIndex + 1).padStart(2, "0")} / {String(PRODUCTS.length).padStart(2, "0")}
       </div>
+
+      {/* ── Top-center: product label ─────────────────── */}
+      <div
+        style={{
+          position: "absolute",
+          top: "2rem",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 10,
+          fontFamily: "'DM Sans', sans-serif",
+          fontWeight: 300,
+          fontSize: "0.65rem",
+          letterSpacing: "0.3em",
+          color: product.accent,
+          textTransform: "uppercase",
+          transition: "color 600ms ease",
+          whiteSpace: "nowrap",
+          userSelect: "none",
+        }}
+      >
+        {product.label}
+      </div>
+
+      {/* ── Left arrow ───────────────────────────────── */}
+      <button
+        onClick={goPrev}
+        aria-label="Previous product"
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "2rem",
+          transform: "translateY(-50%)",
+          zIndex: 10,
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "'DM Sans', sans-serif",
+          fontWeight: 300,
+          fontSize: "1.5rem",
+          color: "rgba(255,255,255,0.25)",
+          transition: "color 200ms ease",
+          padding: "0.5rem",
+          /* Hidden on mobile via CSS class */
+        }}
+        className="axion-arrow"
+        onMouseEnter={(e) =>
+          ((e.currentTarget as HTMLButtonElement).style.color =
+            "rgba(255,255,255,0.8)")
+        }
+        onMouseLeave={(e) =>
+          ((e.currentTarget as HTMLButtonElement).style.color =
+            "rgba(255,255,255,0.25)")
+        }
+      >
+        &#8249;
+      </button>
+
+      {/* ── Right arrow ──────────────────────────────── */}
+      <button
+        onClick={goNext}
+        aria-label="Next product"
+        style={{
+          position: "absolute",
+          top: "50%",
+          right: "2rem",
+          transform: "translateY(-50%)",
+          zIndex: 10,
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "'DM Sans', sans-serif",
+          fontWeight: 300,
+          fontSize: "1.5rem",
+          color: "rgba(255,255,255,0.25)",
+          transition: "color 200ms ease",
+          padding: "0.5rem",
+        }}
+        className="axion-arrow"
+        onMouseEnter={(e) =>
+          ((e.currentTarget as HTMLButtonElement).style.color =
+            "rgba(255,255,255,0.8)")
+        }
+        onMouseLeave={(e) =>
+          ((e.currentTarget as HTMLButtonElement).style.color =
+            "rgba(255,255,255,0.25)")
+        }
+      >
+        &#8250;
+      </button>
+
+      {/* ── Main content — AnimatePresence for clean transitions ── */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={product.id}
+          initial={contentEnter.initial}
+          animate={contentEnter.animate}
+          exit={contentExit}
+          style={{
+            position: "relative",
+            zIndex: 5,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0",
+            width: "100%",
+            maxWidth: "600px",
+            padding: "6rem 2rem 5rem",
+            textAlign: "center",
+          }}
+        >
+          {/* ── Image container ─────────────────────────── */}
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              display: "flex",
+              justifyContent: "center",
+              marginBottom: "2.5rem",
+            }}
+          >
+            {/* Glow below image */}
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                transform: "translateX(-50%)",
+                bottom: "-40px",
+                width: "60%",
+                height: "160px",
+                background: `radial-gradient(ellipse, ${product.accent}25 0%, transparent 70%)`,
+                filter: "blur(50px)",
+                zIndex: 0,
+                transition: "background 800ms ease",
+                pointerEvents: "none",
+              }}
+            />
+
+            {/* Product image with reveal transition */}
+            <motion.div
+              key={`img-${product.id}`}
+              variants={imageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              style={{
+                position: "relative",
+                zIndex: 1,
+                width: "100%",
+                maxWidth: "380px",
+              }}
+              className="axion-product-image"
+            >
+              <Image
+                src={product.imageSrc}
+                alt={product.name}
+                width={380}
+                height={480}
+                priority
+                style={{
+                  width: "100%",
+                  maxWidth: "380px",
+                  maxHeight: "55vh",
+                  objectFit: "contain",
+                  mixBlendMode: "screen",
+                  display: "block",
+                  margin: "0 auto",
+                }}
+              />
+            </motion.div>
+          </div>
+
+          {/* ── Product name ─────────────────────────────── */}
+          <h2
+            style={{
+              fontFamily: "'PP Neue Corp Wide', sans-serif",
+              fontWeight: 800,
+              fontSize: "clamp(2.8rem, 6vw, 4.5rem)",
+              color: "#ffffff",
+              margin: "0 0 0.6rem",
+              lineHeight: 1,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {product.name}
+          </h2>
+
+          {/* ── Tagline ───────────────────────────────────── */}
+          <p
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontWeight: 300,
+              fontStyle: "italic",
+              fontSize: "1.1rem",
+              color: "rgba(255,255,255,0.45)",
+              letterSpacing: "0.05em",
+              margin: "0 0 1.5rem",
+            }}
+          >
+            {product.tagline}
+          </p>
+
+          {/* ── Description ──────────────────────────────── */}
+          <p
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontWeight: 400,
+              fontSize: "clamp(0.9rem, 1.5vw, 0.95rem)",
+              color: "rgba(255,255,255,0.55)",
+              maxWidth: "420px",
+              lineHeight: 1.7,
+              margin: "0 0 1.25rem",
+            }}
+          >
+            {product.description}
+          </p>
+
+          {/* ── Specs ─────────────────────────────────────── */}
+          <p
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontWeight: 300,
+              fontSize: "0.75rem",
+              color: product.accent,
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              margin: "0 0 2rem",
+              transition: "color 600ms ease",
+            }}
+          >
+            {product.specs}
+          </p>
+
+          {/* ── CTA button ───────────────────────────────── */}
+          <CTAButton accent={product.accent} label={product.cta} />
+        </motion.div>
+      </AnimatePresence>
+
+      {/* ── Navigation dots — bottom center ───────────── */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "2.5rem",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: "0.75rem",
+        }}
+      >
+        {PRODUCTS.map((p, i) => (
+          <button
+            key={p.id}
+            onClick={() => goTo(i)}
+            aria-label={`Go to ${p.name}`}
+            style={{
+              width: i === currentIndex ? "12px" : "8px",
+              height: i === currentIndex ? "12px" : "8px",
+              borderRadius: "50%",
+              border: `1px solid ${p.accent}`,
+              backgroundColor: i === currentIndex ? p.accent : "transparent",
+              opacity: i === currentIndex ? 1 : 0.4,
+              cursor: "pointer",
+              padding: 0,
+              transition: "all 300ms ease",
+              /* Pulse animation on active dot via className */
+              animation: i === currentIndex ? "axion-dot-pulse 2s infinite" : "none",
+            }}
+          />
+        ))}
+      </div>
+
+      {/* ── Global styles (injected once) ─────────────── */}
+      <style>{`
+        @keyframes axion-dot-pulse {
+          0%, 100% { box-shadow: 0 0 0 0px currentColor; opacity: 1; }
+          50% { box-shadow: 0 0 0 4px transparent; opacity: 0.8; }
+        }
+
+        /* Hide arrows on mobile */
+        @media (max-width: 768px) {
+          .axion-arrow { display: none !important; }
+        }
+
+        /* Mobile image sizing */
+        @media (max-width: 768px) {
+          .axion-product-image img {
+            max-width: 260px !important;
+            max-height: 40vh !important;
+          }
+        }
+      `}</style>
     </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────
+// CTA BUTTON — outline style with hover fill
+// ─────────────────────────────────────────────────────
+
+function CTAButton({ accent, label }: { accent: string; label: string }) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <button
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        fontFamily: "'DM Sans', sans-serif",
+        fontWeight: 500,
+        fontSize: "0.85rem",
+        letterSpacing: "0.2em",
+        textTransform: "uppercase",
+        padding: "0.8rem 2.5rem",
+        border: `1px solid ${accent}`,
+        backgroundColor: hovered ? accent : "transparent",
+        color: hovered ? "#000000" : accent,
+        cursor: "pointer",
+        transition: "background-color 300ms ease, color 300ms ease",
+        outline: "none",
+      }}
+    >
+      {label}
+    </button>
   );
 }
